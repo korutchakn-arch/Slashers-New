@@ -96,15 +96,49 @@ StartSurvClassWatchdog = function(ply)
 
         print("[Surv-Setup] Survivor " .. ply:Nick() .. " timed out on class selection. Auto-assigning random class.")
 
-        local classes = table.GetKeys(gm.CLASS.Survivors)
-        if #classes == 0 then return end
-        local chosen  = classes[math.random(#classes)]
-        ply.ChosenClass        = chosen
+        -- Build available list by filtering out classes already in TakenSurvClasses.
+        local classes    = table.GetKeys(gm.CLASS.Survivors)
+        local available  = {}
+        for _, classKey in ipairs(classes) do
+            if not TakenSurvClasses[classKey] then
+                table.insert(available, classKey)
+            end
+        end
+
+        local chosen
+        if #available > 0 then
+            chosen = available[math.random(#available)]
+        else
+            -- All classes taken (more players than unique classes) — fallback to random.
+            chosen = classes[math.random(#classes)]
+            print("[Surv-Setup] All survivor classes taken; " .. ply:Nick() .. " forced onto: " .. tostring(chosen))
+        end
+
+        -- Register the class in TakenSurvClasses (key = classKey, value = steamID).
+        TakenSurvClasses[chosen] = ply:SteamID()
+        local classID = gm.SurvivorClasses and gm.SurvivorClasses[chosen] and gm.SurvivorClasses[chosen].key or chosen
+        ply.ChosenClass        = classID
         ply.HasChosenSurvClass = true
 
         -- Notify client to close menu
         net.Start("sls_surv_classsetup_timeout")
         net.Send(ply)
+
+        -- Broadcast chosen class to all clients so the UI updates.
+        net.Start("sls_surv_sync_class")
+            net.WriteEntity(ply)
+            net.WriteString(chosen)
+        net.Broadcast()
+
+        -- Broadcast the full updated TakenSurvClasses table so the UI reflects the reservation.
+        local keys = {}
+        for k in pairs(TakenSurvClasses) do table.insert(keys, k) end
+        net.Start("sls_surv_sync_taken_classes")
+            net.WriteUInt(#keys, 8)
+            for _, k in ipairs(keys) do
+                net.WriteString(k)
+            end
+        net.Broadcast()
 
         -- Check whether every survivor is now accounted for.
         -- If so, signal the synchronisation barrier so PostStart can fire.
@@ -231,21 +265,24 @@ local function ApplyChosenClasses(self)
 
         local classID = ply.ChosenClass
         if not classID then
-            -- Fallback: pick a random unassigned class
+            -- Fallback: prefer classes not already in TakenSurvClasses.
+            -- TakenSurvClasses keys are classKeys (strings), while gm.CLASS.Survivors
+            -- is keyed by classID. We iterate SurvivorClasses to bridge the two.
             local available = {}
-            for class, _ in pairs(gm.CLASS.Survivors) do
-                local taken = false
-                for _, other in ipairs(player.GetAll()) do
-                    if IsValid(other) and other ~= ply and other.ChosenClass == class then
-                        taken = true
-                        break
+            if gm.SurvivorClasses then
+                for classKey, classInfo in pairs(gm.SurvivorClasses) do
+                    if not TakenSurvClasses[classKey] and classInfo.key then
+                        table.insert(available, classInfo.key)
                     end
                 end
-                if not taken then
-                    table.insert(available, class)
-                end
             end
-            classID = available[math.random(#available)] or CLASS_SURV_SPORTS
+            if #available == 0 then
+                -- All unique classes taken — fallback to a random classID from Survivors.
+                local allKeys = table.GetKeys(gm.CLASS.Survivors)
+                classID = allKeys[math.random(#allKeys)] or CLASS_SURV_SPORTS
+            else
+                classID = available[math.random(#available)]
+            end
             ply.ChosenClass = classID
             print("[Surv-Setup] No class chosen by " .. ply:Nick() .. ", auto-assigned: " .. tostring(classID))
         end
