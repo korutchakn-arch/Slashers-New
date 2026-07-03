@@ -182,6 +182,16 @@ local proxyPos           = nil
 local proxyShowIcon      = false
 local proxyTimerView     = 0
 
+-- Reset all Proxy client state at round boundaries to prevent the
+-- invisibility post-process effect from bleeding into the next round
+-- (e.g. when an admin force-restarts mid-invisibility).
+local function KA_proxy_Reset()
+    proxy_PlyInvisible = false
+    proxy_Visible     = false
+end
+hook.Add("sls_round_PreStart", "sls_ka_proxy_Reset", KA_proxy_Reset)
+hook.Add("sls_round_End",     "sls_ka_proxy_Reset", KA_proxy_Reset)
+
 net.Receive("sls_kability_Invisible", function(len)
     proxy_PlyInvisible = net.ReadBool()
 end)

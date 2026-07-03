@@ -286,6 +286,23 @@ local function KA_proxy_UpdateKillerInView()
     else
         KillerInView = false
     end
+
+    -- Fallback: check if any bot survivor is looking directly at the killer.
+    -- Bots don't send the sls_kability_survivorseekiller net message, so we
+    -- must perform a server-side FOV + LoS check to ensure they interrupt the
+    -- Proxy's invisibility just like human players do.
+    if not KillerInView and GM.ROUND.Active and IsValid(GM.ROUND.Killer) then
+        for _, v in ipairs(GM.ROUND:GetSurvivorsAlive()) do
+            if not v:IsBot() then continue end
+
+            local toKiller = (GM.ROUND.Killer:GetPos() - v:GetPos()):GetNormalized()
+            local aimVec   = v:GetAimVector()
+            if toKiller:Dot(aimVec) > 0.5 and v:IsLineOfSightClear(GM.ROUND.Killer) then
+                KillerInView = true
+                break
+            end
+        end
+    end
 end
 
 --[[
