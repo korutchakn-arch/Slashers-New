@@ -145,11 +145,16 @@ function ENT:Use( activator, caller )
 end
 
 function ENT:OnRemove()
-	-- Only valid for the entity itself (not a player), so skip the broken self:IsPlayer() guard
-	if self:IsValid() then return end
+	if not self:IsValid() then return end
 	local ply = self:GetOwner()
 	if IsValid(ply) and ply.normWalk then
 		ply:SetWalkSpeed(ply.normWalk)
 		ply:SetRunSpeed(ply.normWalk)
+	end
+	-- Clear the visual radar on the Killer's screen
+	if IsValid(GM.ROUND.Killer) then
+		net.Start("sls_motherradar", true)
+			net.WriteUInt(0, 2)
+		net.Send(GM.ROUND.Killer)
 	end
 end
