@@ -274,6 +274,7 @@ local function OpenWeaponSelectMenu()
 	-- ─── Countdown timer panel ───
 	local TIMER_DURATION = 10
 	local timeLeft = TIMER_DURATION
+	local endTime  = CurTime() + TIMER_DURATION
 
 	local timerPanel = vgui.Create("DPanel", frame)
 	timerPanel:SetPos((frameW - 80) / 2, FRAME_PAD + TITLE_H + 8)
@@ -288,28 +289,22 @@ local function OpenWeaponSelectMenu()
 		draw.SimpleText("0:" .. string.format("%02d", timeLeft), "horror1", w / 2, h / 2, Color(r, g, 60, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
-	local timerThink = 0
 	hook.Add("Think", "sls_WeaponSelectTimer", function()
 		if not IsValid(frame) then
 			hook.Remove("Think", "sls_WeaponSelectTimer")
 			return
 		end
-		timerThink = timerThink + FrameTime()
-		if timerThink >= 1 then
-			timerThink = 0
-			timeLeft = timeLeft - 1
-			if timeLeft <= 0 then
-				timeLeft = 0
-				hook.Remove("Think", "sls_WeaponSelectTimer")
-				-- Auto-select first weapon on timeout
-				local firstWeapon = weapons[1]
-				if firstWeapon then
-					net.Start("sls_killer_selectweapon")
-					net.WriteString(firstWeapon)
-					net.SendToServer()
-				end
-				frame:Close()
+		timeLeft = math.max(0, math.ceil(endTime - CurTime()))
+		if timeLeft <= 0 then
+			hook.Remove("Think", "sls_WeaponSelectTimer")
+			-- Auto-select first weapon on timeout
+			local firstWeapon = weapons[1]
+			if firstWeapon then
+				net.Start("sls_killer_selectweapon")
+				net.WriteString(firstWeapon)
+				net.SendToServer()
 			end
+			frame:Close()
 		end
 	end)
 
