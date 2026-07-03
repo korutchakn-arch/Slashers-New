@@ -117,9 +117,9 @@ net.Receive("sls_killer_selectweapon", function(len, ply)
 
 	-- Cancel watchdog since weapon was chosen
 	timer.Remove("sls_KillerSetup_WeaponWatchdog_" .. ply:SteamID64())
-	print("[Setup-Pipeline] sls_killer_selectweapon RECEIVED from " .. ply:Nick() .. " — weapon: " .. weaponClass)
 
 	local weaponClass = net.ReadString()
+	print("[Setup-Pipeline] sls_killer_selectweapon RECEIVED from " .. ply:Nick() .. " — weapon: " .. weaponClass)
 	print("[Staff-Debug] Server received weapon: " .. weaponClass)
 
 	-- Validate weapon against allowed config list
