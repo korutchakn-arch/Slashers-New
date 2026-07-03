@@ -117,15 +117,74 @@ function GM.ROUND:Start(forceKiller)
 	-- Survivors are frozen above at spawn time and will be unfrozen by the
 	-- centralised sls_round_PostStart hook in sv_setup.lua after the cinematic.
 
-	-- Trigger the Setup Pipeline for the Killer
+	-- Trigger the Setup Pipeline for the Killer.
+	-- Bots never interact with net messages, so their entire pipeline is driven
+	-- server-side here. Human killers receive the character-select UI as normal.
 	if IsValid(GM.ROUND.Killer) then
-		timer.Simple(0.5, function()
-			if IsValid(GM.ROUND.Killer) then
-				net.Start("sls_killer_opencharselect")
-				net.Send(GM.ROUND.Killer)
-				print("[Setup-Pipeline] Character selection dispatched to " .. GM.ROUND.Killer:Nick())
-			end
-		end)
+		if GM.ROUND.Killer:IsBot() then
+			-- ── Bot killer: simulate the full setup pipeline automatically ──────
+			timer.Simple(0.5, function()
+				local killer = GM.ROUND.Killer
+				if not IsValid(killer) then return end
+
+				-- 1. Pick a random character from the registry.
+				local charKeys = table.GetKeys(GAMEMODE.KillerCharacters)
+				local charKey  = charKeys[math.random(#charKeys)]
+				local charData = GAMEMODE.KillerCharacters[charKey]
+
+				if charData then
+					killer:SetModel(charData.model)
+					killer:SetupHands()
+					killer:SetWalkSpeed(charData.walk)
+					killer:SetRunSpeed(charData.run)
+					GAMEMODE.MAP.Killer       = GAMEMODE.MAP.Killer or {}
+					GAMEMODE.MAP.Killer.Name  = charData.name
+					GAMEMODE.MAP.Killer.Model = charData.model
+				end
+				killer.ChosenCharacter    = charKey
+				killer.HasChosenCharacter = true
+
+				-- 2. Broadcast character choice so HUD/scoreboard updates.
+				net.Start("sls_killer_sync_character")
+					net.WriteString(charKey)
+				net.Broadcast()
+				print("[Setup-Pipeline] Bot killer auto-selected character: " .. tostring(charKey))
+
+				-- 3. CRITICAL: Fire sls_surv_KillerCharSelected so survivors
+				--    receive their class-select menu. Without this hook the
+				--    survivor menu never opens and the round soft-locks.
+				hook.Run("sls_surv_KillerCharSelected", killer)
+
+				-- 4. Pick and give a default weapon.
+				local allowed     = GAMEMODE.CONFIG["killer_weapons"]
+				local weaponClass = (allowed and allowed[1]) or "tfa_nmrih_machete"
+				killer:Give(weaponClass)
+				killer:SelectWeapon(weaponClass)
+				killer.InitialWeapon   = weaponClass
+				killer.HasChosenWeapon = true
+				print("[Setup-Pipeline] Bot killer auto-equipped weapon: " .. weaponClass)
+
+				-- 5. Fire PostStart — centralised sls_Setup_FreezeSurvivors hook
+				--    in sv_setup.lua handles the survivor freeze/unfreeze timer.
+				hook.Run("sls_round_PostStart")
+				net.Start("sls_round_PostStart")
+					net.WriteInt(GAMEMODE.ROUND.Count, 16)
+					net.WriteInt(GAMEMODE.ROUND.EndTime, 16)
+					net.WriteTable(GAMEMODE.ROUND.Survivors)
+					net.WriteEntity(GAMEMODE.ROUND.Killer)
+					net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
+				net.Broadcast()
+			end)
+		else
+			-- ── Human killer: open the character-select UI as normal ─────────
+			timer.Simple(0.5, function()
+				if IsValid(GM.ROUND.Killer) then
+					net.Start("sls_killer_opencharselect")
+					net.Send(GM.ROUND.Killer)
+					print("[Setup-Pipeline] Character selection dispatched to " .. GM.ROUND.Killer:Nick())
+				end
+			end)
+		end
 	end
 
 	print("Start round " .. GM.ROUND.Count .. "/" .. GetConVar("slashers_round_max"):GetInt())
