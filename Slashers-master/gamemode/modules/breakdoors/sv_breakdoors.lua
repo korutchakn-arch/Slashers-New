@@ -45,8 +45,6 @@ end
 
 local function WoodenState4(ent, aimvec)
 	ent:SetModel("models/props_doors/doormain_rural01_small_01.mdl")
-	ent:PhysicsInitConvex(wood1)
-	ent:EnableCustomCollisions(true)
 
 	CreateDebris(ent, "models/props_doors/doormain_rural01_small_02.mdl", 6, aimvec)
 end
