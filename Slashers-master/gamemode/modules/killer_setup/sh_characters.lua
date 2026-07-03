@@ -36,19 +36,21 @@ GM.KillerCharacters = {
 		icon  = "icons/icon_proxy.png"
 	},
 	["intruder"] = {
-		name  = "The Intruder",
-		model = "models/steinman/slashers/intruder_pm.mdl",
-		walk  = 200,
-		run   = 200,
-		desc  = "Place bear traps and alert ropes to trap your prey.",
-		icon  = "icons/icon_intruder.png"
+		name          = "The Intruder",
+		model         = "models/steinman/slashers/intruder_pm.mdl",
+		walk          = 200,
+		run           = 200,
+		desc          = "Place bear traps and alert ropes to trap your prey.",
+		icon          = "icons/icon_intruder.png",
+		extra_weapons = {"weapon_beartrap", "weapon_alertropes", "weapon_dooraxe"}
 	},
 	["bates"] = {
-		name  = "Norman Bates",
-		model = "models/steinman/slashers/bates_pm.mdl",
-		walk  = 200,
-		run   = 200,
-		desc  = "Use your mother's corpse to locate and hunt survivors.",
-		icon  = "icons/icon_bates.png"
+		name          = "Norman Bates",
+		model         = "models/steinman/slashers/bates_pm.mdl",
+		walk          = 200,
+		run           = 200,
+		desc          = "Use your mother's corpse to locate and hunt survivors.",
+		icon          = "icons/icon_bates.png",
+		extra_weapons = {"weapon_batesmother"}
 	}
 }

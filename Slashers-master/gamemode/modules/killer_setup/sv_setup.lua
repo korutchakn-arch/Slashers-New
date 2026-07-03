@@ -133,6 +133,16 @@ net.Receive("sls_killer_selectweapon", function(len, ply)
 	ply.InitialWeapon   = weaponClass
 	ply.HasChosenWeapon = true
 
+	-- Give character-specific extra weapons (e.g. bear traps, alert ropes, mother corpse)
+	local charKey = ply.ChosenCharacter
+	local charData = GAMEMODE.KillerCharacters[charKey]
+	if charData and charData.extra_weapons then
+		for _, extraClass in ipairs(charData.extra_weapons) do
+			ply:Give(extraClass)
+			print("[Setup-Pipeline] Gave extra weapon '" .. extraClass .. "' to " .. ply:Nick())
+		end
+	end
+
 	-- ─── Signal killer ready — PostStart fires only after BOTH sides are done ───
 	-- CheckSetupComplete() in sv_rounds.lua holds the barrier. Survivors must finish
 	-- their 10-second class-select window before PostStart (and the cinematic) fires.
