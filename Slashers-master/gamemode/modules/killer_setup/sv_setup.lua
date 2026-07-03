@@ -47,15 +47,6 @@ local function StartWeaponSelectWatchdog(ply)
 			net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
 		net.Broadcast()
 
-		local freezeDur = GAMEMODE.CONFIG["round_freeze_start"] or 10
-		timer.Simple(freezeDur, function()
-			if GAMEMODE.ROUND.Survivors then
-				for _, v in ipairs(GAMEMODE.ROUND.Survivors) do
-					if IsValid(v) then v:Freeze(false) end
-				end
-			end
-		end)
-
 		net.Start("sls_killer_showintro")
 			net.WriteString(ply.ChosenCharacter or "")
 		net.Send(ply)
@@ -104,6 +95,36 @@ net.Receive("sls_killer_selectchar", function(len, ply)
 	-- Start 30s watchdog — if killer never picks a weapon, auto-proceed
 	StartWeaponSelectWatchdog(ply)
 	print("[Setup-Pipeline] Weapon selection menu sent. Watchdog started for " .. ply:Nick())
+
+	-- Fire hook so survivor_setup knows the killer has picked their character.
+	-- This triggers the 5-second delay before the survivor class menu opens.
+	hook.Run("sls_surv_KillerCharSelected", ply)
+
+	-- BOTS: skip the weapon menu entirely and immediately proceed to PostStart.
+	-- Bots never send sls_killer_selectchar or sls_killer_selectweapon, so without
+	-- this they would leave survivors frozen indefinitely (the watchdog also never fires
+	-- because StartWeaponSelectWatchdog is only called from sls_killer_selectchar, and
+	-- bots don't trigger that net message). Immediately calling weapon selection here
+	-- fires sls_round_PostStart and starts the normal round flow for all survivors.
+	if ply:IsBot() then
+		print("[Setup-Pipeline] Bot killer detected — bypassing weapon menu, proceeding immediately.")
+		timer.Remove("sls_KillerSetup_WeaponWatchdog_" .. ply:SteamID64())
+		local allowed = GAMEMODE.CONFIG["killer_weapons"]
+		local weaponClass = allowed and allowed[1] or "tfa_nmrih_machete"
+		ply:Give(weaponClass)
+		ply:SelectWeapon(weaponClass)
+		ply.InitialWeapon   = weaponClass
+		ply.HasChosenWeapon = true
+
+		hook.Run("sls_round_PostStart")
+		net.Start("sls_round_PostStart")
+			net.WriteInt(GAMEMODE.ROUND.Count, 16)
+			net.WriteInt(GAMEMODE.ROUND.EndTime, 16)
+			net.WriteTable(GAMEMODE.ROUND.Survivors)
+			net.WriteEntity(GAMEMODE.ROUND.Killer)
+			net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
+		net.Broadcast()
+	end
 end)
 
 -- ─────────────────────────────────────────────

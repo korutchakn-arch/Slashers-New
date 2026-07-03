@@ -153,6 +153,15 @@ function GM.CLASS:ApplyChosenClasses()
 end
 
 -- ─────────────────────────────────────────────
+-- Finalize survivor classes after the round officially starts.
+-- Called after sls_round_PostStart so all clients have the killer's
+-- chosen character data, and survivors have had a chance to pick their class.
+-- ─────────────────────────────────────────────
+hook.Add("sls_round_PostStart", "sls_SurvSetup_ApplyClasses", function()
+    GM.CLASS:ApplyChosenClasses()
+end)
+
+-- ─────────────────────────────────────────────
 -- Client-side class selection timeout — close survivor menu
 -- ─────────────────────────────────────────────
 net.Receive("sls_surv_classsetup_timeout", function(len)
