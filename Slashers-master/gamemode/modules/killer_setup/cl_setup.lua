@@ -304,6 +304,8 @@ local function OpenWeaponSelectMenu()
 				net.WriteString(firstWeapon)
 				net.SendToServer()
 			end
+			-- Show black screen while waiting for all players to finish setup.
+			GAMEMODE.ROUND.SetupWaiting = true
 			frame:Close()
 		end
 	end)
@@ -339,6 +341,8 @@ local function OpenWeaponSelectMenu()
 			net.Start("sls_killer_selectweapon")
 			net.WriteString(btnClass)
 			net.SendToServer()
+			-- Show black screen while waiting for all players to finish setup.
+			GAMEMODE.ROUND.SetupWaiting = true
 			frame:Close()
 		end
 

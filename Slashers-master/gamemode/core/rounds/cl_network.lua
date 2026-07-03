@@ -8,6 +8,8 @@
 local GM = GM or GAMEMODE
 
 local function PreStart()
+	-- Clear the waiting screen so it never gets stuck if a round restarts.
+	GM.ROUND.SetupWaiting = false
 	GM.ROUND.Active = false
 	GM.ROUND.WaitingPolice = false
 	GM.ROUND.Escape = false
@@ -16,6 +18,8 @@ end
 net.Receive("sls_round_PreStart", PreStart)
 
 local function PostStart()
+	-- Clear the waiting screen — PostStart means setup is complete.
+	GM.ROUND.SetupWaiting = false
 	GM.ROUND.Active = true
 	GM.ROUND.Count = net.ReadInt(16)
 	GM.ROUND.EndTime = net.ReadInt(16)
@@ -53,7 +57,8 @@ net.Receive("sls_round_OnTeamWin", OnTeamWin)
 
 local function End()
 	local winTeam
-
+	-- Clear the waiting screen so it never persists into the end screen.
+	GM.ROUND.SetupWaiting = false
 	GM.ROUND.Active = false
 	GM.ROUND.WaitingPolice = false
 	GM.ROUND.Escape = false

@@ -235,6 +235,8 @@ local function OpenCharSelectMenu()
             net.Start("sls_surv_selectclass")
             net.WriteString(entryCopy.key)
             net.SendToServer()
+            -- Show black screen while waiting for all players to finish setup.
+            GAMEMODE.ROUND.SetupWaiting = true
             frame:Close()
         end
     end
@@ -267,6 +269,8 @@ end
 -- Class selection timeout — server watchdog closed the menu
 -- ─────────────────────────────────────────────
 net.Receive("sls_surv_classsetup_timeout", function(len)
+    -- Show black screen while waiting for all players to finish setup.
+    GAMEMODE.ROUND.SetupWaiting = true
     if IsValid(SlashersSurvCharFrame) then
         SlashersSurvCharFrame:Remove()
     end
