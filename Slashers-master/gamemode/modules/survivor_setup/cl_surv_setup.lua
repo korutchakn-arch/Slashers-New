@@ -79,7 +79,7 @@ local function OpenCharSelectMenu()
     titlePanel.Paint = function(s, w, h)
         surface.SetDrawColor(CLR_TITLEBG)
         surface.DrawRect(0, h - 4, w, 4)
-        draw.SimpleText("CHOOSE YOUR CLASS", "horror1", w / 2, h / 2, CLR_NAME, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText("CHOOSE YOUR CHARACTER", "horror1", w / 2, h / 2, CLR_NAME, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 
     -- ─── Countdown timer panel ───
@@ -192,7 +192,7 @@ local function OpenCharSelectMenu()
         local nameLabel = vgui.Create("DLabel", card)
         nameLabel:SetPos(0, 184)
         nameLabel:SetSize(CARD_W, 28)
-        nameLabel:SetFont("DermaDefaultBold")
+        nameLabel:SetFont("horrortext")
         nameLabel:SetText(survData.name:upper())
         nameLabel:SetContentAlignment(5)
         nameLabel:SetTextColor(CLR_NAME)
@@ -208,22 +208,6 @@ local function OpenCharSelectMenu()
         descLabel:SetTextColor(CLR_DESC)
         descLabel:SetWrap(true)
 
-        -- Stats panel
-        local statsLabel = vgui.Create("DLabel", card)
-        statsLabel:SetPos(8, 268)
-        statsLabel:SetSize(CARD_W - 16, 50)
-        statsLabel:SetFont("ChatFont")
-        local statsText = string.format(
-            "HP: %d  |  Stam: %d  |  Spd: %d / %d",
-            survData.life or 100,
-            survData.stamina or 100,
-            survData.walkspeed or 150,
-            survData.runspeed or 240
-        )
-        statsLabel:SetText(statsText)
-        statsLabel:SetContentAlignment(5)
-        statsLabel:SetTextColor(Color(140, 170, 210, 200))
-        statsLabel:SetWrap(true)
 
         -- Special weapons indicator
         if survData.weapons and #survData.weapons > 0 then
