@@ -10,6 +10,13 @@ GM.CONFIG = {}
 
 GM.CONFIG["disabled_modules"] = {
 	-- ["goal"] = true, -- set true to disable module
+	-- weaponselect is disabled: the killer_setup module owns the full
+	-- weapon-selection pipeline (10s countdown timer, watchdog, intro,
+	-- PostStart broadcast). The weaponselect module's duplicate handlers
+	-- intercepted sls_killer_selectweapon and silently consumed it before
+	-- sv_setup.lua could fire sls_round_PostStart / sls_killer_showintro,
+	-- leaving the player frozen with no intro.
+	["weaponselect"] = true,
 }
 
 -- Armes pour le tueur
