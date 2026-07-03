@@ -22,6 +22,12 @@ hook.Add("sls_round_PreStart", "sls_SurvSetup_Reset", function()
 end)
 
 -- ─────────────────────────────────────────────
+-- Forward declaration so OpenSurvivorCharSelect can call it before
+-- the full definition appears below (Lua sequential-parse safety).
+-- ─────────────────────────────────────────────
+local StartSurvClassWatchdog
+
+-- ─────────────────────────────────────────────
 -- Open the survivor class selection menu for all survivors.
 -- Called after a short delay from sls_round_PostStart so the killer's
 -- character selection phase gives survivors time to browse.
@@ -39,7 +45,7 @@ local function OpenSurvivorCharSelect()
     for _, ply in ipairs(survivors) do
         net.Start("sls_surv_opencharselect")
         net.Send(ply)
-        StartSurvClassWatchdog(ply)
+        StartSurvClassWatchdog(ply)  -- safe: forward-declared above
     end
 
     print("[Surv-Setup] Class selection menu sent to " .. #survivors .. " survivor(s).")
@@ -56,7 +62,8 @@ end)
 -- ─────────────────────────────────────────────
 local TIMER_SURV_SELECT = 10
 
-local function StartSurvClassWatchdog(ply)
+-- Full definition assigned to the forward-declared upvalue.
+StartSurvClassWatchdog = function(ply)
     if not IsValid(ply) then return end
     timer.Remove("sls_SurvSetup_Watchdog_" .. ply:SteamID64())
 
@@ -65,9 +72,17 @@ local function StartSurvClassWatchdog(ply)
         if ply:Team() ~= TEAM_SURVIVORS then return end
         if ply.HasChosenSurvClass then return end
 
+        -- GAMEMODE is the correct runtime reference; GM may be nil at hook-fire time.
+        local gm = GAMEMODE
+        if not gm or not gm.CLASS or not gm.CLASS.Survivors then
+            print("[Surv-Setup] GAMEMODE.CLASS not ready — skipping auto-assign for " .. ply:Nick())
+            return
+        end
+
         print("[Surv-Setup] Survivor " .. ply:Nick() .. " timed out on class selection. Auto-assigning random class.")
 
-        local classes = table.GetKeys(GM.CLASS.Survivors)
+        local classes = table.GetKeys(gm.CLASS.Survivors)
+        if #classes == 0 then return end
         local chosen  = classes[math.random(#classes)]
         ply.ChosenClass        = chosen
         ply.HasChosenSurvClass = true
@@ -86,10 +101,17 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     if ply:Team() ~= TEAM_SURVIVORS then return end
     if ply.HasChosenSurvClass then return end
 
-    local classKey = net.ReadString()
-    local classID  = GM.SurvivorClasses[classKey] and GM.SurvivorClasses[classKey].key
+    -- Use GAMEMODE (not GM) — GM can be nil at net-receive time.
+    local gm = GAMEMODE
+    if not gm or not gm.CLASS or not gm.CLASS.Survivors then
+        print("[Surv-Setup] GAMEMODE.CLASS not ready — ignoring class selection from " .. ply:Nick())
+        return
+    end
 
-    if not classID or not GM.CLASS.Survivors[classID] then
+    local classKey = net.ReadString()
+    local classID  = gm.SurvivorClasses and gm.SurvivorClasses[classKey] and gm.SurvivorClasses[classKey].key
+
+    if not classID or not gm.CLASS.Survivors[classID] then
         print("[Surv-Setup] Invalid class key from " .. ply:Nick() .. ": " .. tostring(classKey))
         return
     end
@@ -110,10 +132,18 @@ net.Receive("sls_surv_selectclass", function(len, ply)
 end)
 
 -- ─────────────────────────────────────────────
--- Called from GM.CLASS:ApplyChosenClasses() (sv_class.lua)
--- after sls_round_PostStart to finalize each survivor's class.
+-- ApplyChosenClasses — finalize each survivor's chosen class.
+-- Defined on GAMEMODE.CLASS (the live table at runtime) rather than GM
+-- (which is only valid during the file-load phase).
+-- Called from the sls_round_PostStart hook below.
 -- ─────────────────────────────────────────────
-function GM.CLASS:ApplyChosenClasses()
+local function ApplyChosenClasses(self)
+    local gm = GAMEMODE
+    if not gm or not gm.CLASS or not gm.CLASS.Survivors then
+        print("[Surv-Setup] GAMEMODE.CLASS not ready — cannot apply survivor classes.")
+        return
+    end
+
     local applied = 0
     for _, ply in ipairs(player.GetAll()) do
         if not IsValid(ply) then continue end
@@ -123,7 +153,7 @@ function GM.CLASS:ApplyChosenClasses()
         if not classID then
             -- Fallback: pick a random unassigned class
             local available = {}
-            for class, _ in pairs(GM.CLASS.Survivors) do
+            for class, _ in pairs(gm.CLASS.Survivors) do
                 local taken = false
                 for _, other in ipairs(player.GetAll()) do
                     if IsValid(other) and other ~= ply and other.ChosenClass == class then
@@ -147,23 +177,32 @@ function GM.CLASS:ApplyChosenClasses()
     print("[Surv-Setup] Applied chosen classes to " .. applied .. " survivor(s).")
 end
 
--- ─────────────────────────────────────────────
--- Finalize survivor classes after the round officially starts.
--- Called after sls_round_PostStart so all clients have the killer's
--- chosen character data, and survivors have had a chance to pick their class.
--- ─────────────────────────────────────────────
-hook.Add("sls_round_PostStart", "sls_SurvSetup_ApplyClasses", function()
-    GM.CLASS:ApplyChosenClasses()
-end)
+-- Attach to GAMEMODE.CLASS at load-time if it already exists;
+-- otherwise defer to a hook so the table is guaranteed to exist at call-time.
+if GAMEMODE and GAMEMODE.CLASS then
+    GAMEMODE.CLASS.ApplyChosenClasses = ApplyChosenClasses
+end
 
 -- ─────────────────────────────────────────────
--- Client-side class selection timeout — close survivor menu
+-- Finalize survivor classes after the round officially starts.
+-- GAMEMODE is the correct runtime reference — GM can be nil by the time
+-- this hook fires asynchronously during play.
 -- ─────────────────────────────────────────────
-net.Receive("sls_surv_classsetup_timeout", function(len)
-    if IsValid(SlashersSurvCharFrame) then
-        SlashersSurvCharFrame:Remove()
+hook.Add("sls_round_PostStart", "sls_SurvSetup_ApplyClasses", function()
+    local gm = GAMEMODE
+    if not gm or not gm.CLASS then
+        print("[Surv-Setup] GAMEMODE.CLASS not ready at PostStart — skipping ApplyChosenClasses.")
+        return
     end
-    SlashersSurvCharFrame = nil
-    hook.Remove("Think", "sls_SurvSelectTimer")
-    print("[Surv-Setup] Survivor class menu auto-closed (timeout).")
+
+    -- Ensure the method is present regardless of load order.
+    if not gm.CLASS.ApplyChosenClasses then
+        gm.CLASS.ApplyChosenClasses = ApplyChosenClasses
+    end
+
+    gm.CLASS:ApplyChosenClasses()
 end)
+
+-- NOTE: The client-side sls_surv_classsetup_timeout net.Receive (which
+-- closes SlashersSurvCharFrame) belongs in a cl_*.lua file. It has been
+-- removed from this server-only module to prevent a server-side nil-panel crash.
