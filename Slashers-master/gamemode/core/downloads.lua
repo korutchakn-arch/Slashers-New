@@ -12,4 +12,4 @@ resource.AddWorkshop("858049276") -- slash_subway
 resource.AddWorkshop("1091061063") -- slash_logde
 resource.AddWorkshop("788009163") -- Slashers content 1
 resource.AddWorkshop("857992903") -- Slashers content 2
-resource.AddFile("sound/slashers/music/ambient/waiting_screen_music.mp3")
+resource.AddFile("sound/slashers/music/ambient/waiting_screen_music.wav")

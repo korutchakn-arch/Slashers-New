@@ -18,7 +18,7 @@ local function HUDPaint()
 		-- The string check prevents PlayFile from being called every frame.
 		if GM.ROUND.WaitingMusic == nil then
 			GM.ROUND.WaitingMusic = "loading"
-			sound.PlayFile("sound/slashers/music/ambient/waiting_screen_music.mp3", "noplay", function(station, errCode, errStr)
+			sound.PlayFile("sound/slashers/music/ambient/waiting_screen_music.wav", "noplay", function(station, errCode, errStr)
 				if IsValid(station) then
 					station:SetVolume(0.6)
 					station:Play()
