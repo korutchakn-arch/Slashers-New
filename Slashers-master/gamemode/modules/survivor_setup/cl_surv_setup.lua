@@ -39,6 +39,8 @@ local CLR_DENIED_TXT= Color(255, 80, 80, 255)
 -- ─────────────────────────────────────────────
 -- Open Character Selection Menu
 -- ─────────────────────────────────────────────
+local TakenSurvClasses = {}
+
 local function OpenCharSelectMenu()
     if IsValid(SlashersSurvCharFrame) then
         SlashersSurvCharFrame:Remove()
@@ -315,7 +317,7 @@ end
 -- Updated whenever a class is successfully locked by any player.
 -- Used to drive per-card SetCardTaken(true) in real time.
 -- ─────────────────────────────────────────────
-local TakenSurvClasses = {}
+-- (Declaration moved to top of file)
 
 net.Receive("sls_surv_sync_taken_classes", function(len)
     local count = net.ReadUInt(8)
