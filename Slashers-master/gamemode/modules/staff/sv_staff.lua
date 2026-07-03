@@ -95,7 +95,7 @@ net.Receive("sls_staff_action", function(len, ply)
 			local chosenClass = classes[1]
 			target:SetTeam(TEAM_SURVIVORS)
 			target:Spawn()
-			target:SetClass(chosenClass)
+			target:SetSurvClass(chosenClass)
 			ply:ChatPrint("[Staff] " .. target:Nick() .. " is now a Survivor.")
 		end
 	end
