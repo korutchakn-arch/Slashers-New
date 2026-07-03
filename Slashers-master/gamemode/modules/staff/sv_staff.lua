@@ -37,6 +37,17 @@ net.Receive("sls_staff_action", function(len, ply)
 		return
 	end
 
+	-- ── 1b. TELEPORT TO PLAYER ───────────────────────────────────────────────
+	if action == "teleport_to" then
+		if not IsValid(target) or not target:IsPlayer() then
+			ply:ChatPrint("[Staff] Invalid teleport target.")
+			return
+		end
+		ply:SetPos(target:GetPos())
+		ply:ChatPrint("[Staff] Teleported to " .. target:Nick() .. ".")
+		return
+	end
+
 	-- ── 2. GIVE_WEAPON — reads weapon class after the entity ────────────────
 	if action == "give_weapon" then
 		local weaponClass = net.ReadString()

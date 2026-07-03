@@ -38,7 +38,7 @@ local function OpenStaffPanel()
 		StaffPanel:Remove()
 	end
 
-	local frameW, frameH = 480, 430
+	local frameW, frameH = 480, 480
 	local frame = vgui.Create("DFrame")
 	frame:SetSize(frameW, frameH)
 	frame:Center()
@@ -114,11 +114,41 @@ local function OpenStaffPanel()
 	MakeStaffButton(frame, "Toggle NoClip", 276, "noclip", LocalPlayer())
 
 	-- Play as Survivor — directly makes the admin a survivor (no picker)
-	MakeStaffButton(frame, "Play as Survivor", 324, "play_survivor", LocalPlayer())
+	MakeStaffButton(frame, "Play as Survivor", 420, "play_survivor", LocalPlayer())
+
+	-- Teleport to Player — opens a DermaMenu dropdown
+	local teleportBtn = vgui.Create("DButton", frame)
+	teleportBtn:SetPos(16, 324)
+	teleportBtn:SetSize(frameW - 32, 40)
+	teleportBtn:SetText("")
+	teleportBtn:SetContentAlignment(5)
+	teleportBtn.Paint = function(s, w, h)
+		local hovered = s:IsHovered()
+		local bg     = hovered and Color(90, 20, 20) or Color(45, 15, 15)
+		local border = hovered and Color(220, 60, 60, 255) or Color(110, 30, 30, 180)
+		draw.RoundedBox(4, 0, 0, w, h, bg)
+		surface.SetDrawColor(border)
+		surface.DrawOutlinedRect(0, 0, w, h)
+		draw.SimpleText("Teleport to Player", "horrortext", w / 2, h / 2, hovered and Color(255, 200, 200) or Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+	teleportBtn.DoClick = function()
+		local menu = DermaMenu()
+		for _, p in ipairs(player.GetAll()) do
+			local targetPly = p
+			menu:AddOption(targetPly:Nick(), function()
+				net.Start("sls_staff_action")
+				net.WriteString("teleport_to")
+				net.WriteEntity(targetPly)
+				net.SendToServer()
+				if IsValid(frame) then frame:Close() end
+			end)
+		end
+		menu:Open()
+	end
 
 	-- Kick Player — opens a DermaMenu dropdown
 	local kickBtn = vgui.Create("DButton", frame)
-	kickBtn:SetPos(16, 324)
+	kickBtn:SetPos(16, 372)
 	kickBtn:SetSize(frameW - 32, 40)
 	kickBtn:SetText("")
 	kickBtn:SetContentAlignment(5)
