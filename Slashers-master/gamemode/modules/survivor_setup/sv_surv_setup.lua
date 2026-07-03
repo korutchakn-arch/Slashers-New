@@ -12,12 +12,22 @@
 util.AddNetworkString("sls_surv_opencharselect")
 util.AddNetworkString("sls_surv_selectclass")
 util.AddNetworkString("sls_surv_sync_class")
+util.AddNetworkString("sls_surv_sync_taken_classes")
 util.AddNetworkString("sls_surv_classsetup_timeout")
+util.AddNetworkString("sls_surv_class_denied")
+
+-- ─────────────────────────────────────────────
+-- Module-level tracking: which class keys are taken this round.
+-- Reset on every sls_round_PreStart.
+-- Key = classKey (string, e.g. "sports"), Value = steamID (string)
+-- ─────────────────────────────────────────────
+local TakenSurvClasses = {}
 
 -- ─────────────────────────────────────────────
 -- Reset state at the start of each round
 -- ─────────────────────────────────────────────
 hook.Add("sls_round_PreStart", "sls_SurvSetup_Reset", function()
+    TakenSurvClasses = {}
     for _, ply in ipairs(player.GetAll()) do
         ply.HasChosenSurvClass = false
         ply.ChosenClass        = nil
@@ -141,16 +151,40 @@ net.Receive("sls_surv_selectclass", function(len, ply)
         return
     end
 
+    -- ── UNIQUE LOCK: reject if this class is already taken this round ──
+    if TakenSurvClasses[classKey] then
+        print("[Surv-Setup] Duplicate class request from " .. ply:Nick() .. " for already-taken class: " .. classKey)
+        net.Start("sls_surv_class_denied")
+            net.WriteString(classKey)
+        net.Send(ply)
+        return
+    end
+
+    -- Lock the class for this player
+    TakenSurvClasses[classKey] = ply:SteamID()
     ply.ChosenClass        = classID
     ply.HasChosenSurvClass = true
 
     -- Cancel watchdog — this survivor chose in time
     timer.Remove("sls_SurvSetup_Watchdog_" .. ply:SteamID64())
 
-    -- Sync chosen class to all clients for HUD/scoreboard display
+    -- ── Sync chosen class to all clients (existing HUD/scoreboard sync) ──
     net.Start("sls_surv_sync_class")
         net.WriteEntity(ply)
         net.WriteString(classKey)
+    net.Broadcast()
+
+    -- ── Broadcast the full updated TakenSurvClasses table ──
+    -- This keeps every client in sync with real-time TAKEN state.
+    local count = 0
+    for _ in pairs(TakenSurvClasses) do count = count + 1 end
+    local keys = {}
+    for k in pairs(TakenSurvClasses) do table.insert(keys, k) end
+    net.Start("sls_surv_sync_taken_classes")
+        net.WriteUInt(#keys, 8)  -- supports up to 255 class keys
+        for _, k in ipairs(keys) do
+            net.WriteString(k)
+        end
     net.Broadcast()
 
     print("[Surv-Setup] " .. ply:Nick() .. " chose class: " .. classKey)

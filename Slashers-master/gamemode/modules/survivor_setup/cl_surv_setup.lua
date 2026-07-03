@@ -31,6 +31,10 @@ local CLR_BTN_HOV = Color(25, 70, 150)
 local CLR_BTN_BDR = Color(40, 90, 180, 180)
 local CLR_BTN_HBDR= Color(80, 140, 240)
 local CLR_BTN_TXT = Color(230, 240, 255)
+local CLR_TAKEN_BG= Color(30, 30, 40, 230)
+local CLR_TAKEN_BDR= Color(60, 60, 80, 200)
+local CLR_TAKEN_TXT= Color(120, 120, 140, 255)
+local CLR_DENIED_TXT= Color(255, 80, 80, 255)
 
 -- ─────────────────────────────────────────────
 -- Open Character Selection Menu
@@ -230,17 +234,41 @@ local function OpenCharSelectMenu()
             wepLabel:SetTextColor(Color(100, 200, 120, 200))
         end
 
-        -- Select button
+        -- ── Taken-state management ─────────────────────────────────────────
+        -- Each card tracks its own taken status so it can update in real time.
+        local isTaken = false
+
+        local function SetCardTaken(taken)
+            if taken == isTaken then return end
+            isTaken = taken
+            selectBtn:SetEnabled(not taken)
+            selectBtn:InvalidateLayout()
+        end
+
+        -- Initial state: lock it now if this class is already taken
+        if TakenSurvClasses[classID] then
+            SetCardTaken(true)
+        end
+
+        -- ── Select button ──────────────────────────────────────────────────
         local selectBtn = vgui.Create("DButton", card)
         selectBtn:SetPos(10, CARD_H - 40)
         selectBtn:SetSize(CARD_W - 20, 30)
         selectBtn:SetText("")
         selectBtn.Paint = function(s, w, h)
-            local hovered = s:IsHovered()
-            draw.RoundedBox(4, 0, 0, w, h, hovered and CLR_BTN_HOV or CLR_BTN_NORM)
-            surface.SetDrawColor(hovered and CLR_BTN_HBDR or CLR_BTN_BDR)
-            surface.DrawOutlinedRect(0, 0, w, h)
-            draw.SimpleText("SELECT", "horror1", w / 2, h / 2, CLR_BTN_TXT, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            if isTaken then
+                -- Dark grey "TAKEN" appearance — no hover change
+                draw.RoundedBox(4, 0, 0, w, h, CLR_TAKEN_BG)
+                surface.SetDrawColor(CLR_TAKEN_BDR)
+                surface.DrawOutlinedRect(0, 0, w, h)
+                draw.SimpleText("TAKEN", "horror1", w / 2, h / 2, CLR_TAKEN_TXT, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            else
+                local hovered = s:IsHovered()
+                draw.RoundedBox(4, 0, 0, w, h, hovered and CLR_BTN_HOV or CLR_BTN_NORM)
+                surface.SetDrawColor(hovered and CLR_BTN_HBDR or CLR_BTN_BDR)
+                surface.DrawOutlinedRect(0, 0, w, h)
+                draw.SimpleText("SELECT", "horror1", w / 2, h / 2, CLR_BTN_TXT, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            end
         end
         local entryCopy = entry
         selectBtn.DoClick = function()
@@ -251,6 +279,11 @@ local function OpenCharSelectMenu()
             GAMEMODE.ROUND.SetupWaiting = true
             frame:Close()
         end
+
+        -- Store the per-card update function so the global sync hook can call it.
+        -- card is the DPanel created at line 145 and is unique per card.
+        frame._takenUpdaters = frame._takenUpdaters or {}
+        frame._takenUpdaters[classID] = SetCardTaken
     end
 end
 
@@ -278,6 +311,30 @@ function GM.GetSurvChosenClass(ply)
 end
 
 -- ─────────────────────────────────────────────
+-- Taken-class tracking — mirrors the server's TakenSurvClasses table.
+-- Updated whenever a class is successfully locked by any player.
+-- Used to drive per-card SetCardTaken(true) in real time.
+-- ─────────────────────────────────────────────
+local TakenSurvClasses = {}
+
+net.Receive("sls_surv_sync_taken_classes", function(len)
+    local count = net.ReadUInt(8)
+    -- Rebuild from scratch each broadcast to keep in sync.
+    TakenSurvClasses = {}
+    for i = 1, count do
+        local key = net.ReadString()
+        TakenSurvClasses[key] = true
+    end
+
+    -- If the character select menu is open, update all card buttons immediately.
+    if IsValid(SlashersSurvCharFrame) and SlashersSurvCharFrame._takenUpdaters then
+        for classID, updater in pairs(SlashersSurvCharFrame._takenUpdaters) do
+            updater(TakenSurvClasses[classID] == true)
+        end
+    end
+end)
+
+-- ─────────────────────────────────────────────
 -- Class selection timeout — server watchdog closed the menu
 -- ─────────────────────────────────────────────
 net.Receive("sls_surv_classsetup_timeout", function(len)
@@ -289,4 +346,38 @@ net.Receive("sls_surv_classsetup_timeout", function(len)
     SlashersSurvCharFrame = nil
     hook.Remove("Think", "sls_SurvSelectTimer")
     print("[Surv-Setup] Survivor class menu auto-closed (timeout).")
+end)
+
+-- ─────────────────────────────────────────────
+-- Denial handler — server rejected the player's class pick because
+-- it was already taken. Shows a brief red flash label over the frame
+-- then re-enables selection so they can pick a different character.
+-- ─────────────────────────────────────────────
+net.Receive("sls_surv_class_denied", function(len)
+    local classKey = net.ReadString()
+    if not IsValid(SlashersSurvCharFrame) then return end
+
+    -- Clear the waiting state so the player can pick again.
+    GAMEMODE.ROUND.SetupWaiting = false
+
+    -- Briefly show a denial message centred on the frame.
+    local deniedLabel = vgui.Create("DLabel", SlashersSurvCharFrame)
+    local fw, fh = SlashersSurvCharFrame:GetSize()
+    deniedLabel:SetPos(0, fh / 2 - 30)
+    deniedLabel:SetSize(fw, 60)
+    deniedLabel:SetFont("TargetID")
+    deniedLabel:SetContentAlignment(5)
+    deniedLabel:SetText("That class has already been taken.\nPlease choose another.")
+    deniedLabel:SetTextColor(CLR_DENIED_TXT)
+    deniedLabel:SetPaintBackground(true)
+    deniedLabel:SetBGColor(0, 0, 0, 180)
+
+    -- Auto-remove after 2 seconds.
+    timer.Simple(2, function()
+        if IsValid(deniedLabel) then
+            deniedLabel:Remove()
+        end
+    end)
+
+    print("[Surv-Setup] Class selection denied for class key: " .. classKey)
 end)
