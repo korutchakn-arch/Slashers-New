@@ -43,6 +43,10 @@ function GM.ROUND:Start(forceKiller)
 	GM.ROUND.WaitingPolice = false
 	GM.ROUND.Escape = false
 	GM.ROUND.NextStart = nil
+	-- Synchronisation flags: PostStart only fires when BOTH sides are ready.
+	-- Prevents the cinematic from overlapping the survivor class-select menu.
+	GM.ROUND.KillerReady    = false
+	GM.ROUND.SurvivorsReady = false
 
 	local playersCount = 0
 	for _, v in ipairs(player.GetAll()) do
@@ -164,16 +168,10 @@ function GM.ROUND:Start(forceKiller)
 				killer.HasChosenWeapon = true
 				print("[Setup-Pipeline] Bot killer auto-equipped weapon: " .. weaponClass)
 
-				-- 5. Fire PostStart — centralised sls_Setup_FreezeSurvivors hook
-				--    in sv_setup.lua handles the survivor freeze/unfreeze timer.
-				hook.Run("sls_round_PostStart")
-				net.Start("sls_round_PostStart")
-					net.WriteInt(GAMEMODE.ROUND.Count, 16)
-					net.WriteInt(GAMEMODE.ROUND.EndTime, 16)
-					net.WriteTable(GAMEMODE.ROUND.Survivors)
-					net.WriteEntity(GAMEMODE.ROUND.Killer)
-					net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
-				net.Broadcast()
+				-- 5. Signal that the killer side is done. PostStart only fires once
+				--    the survivors are also ready (CheckSetupComplete barrier).
+				GAMEMODE.ROUND.KillerReady = true
+				GAMEMODE.ROUND:CheckSetupComplete()
 			end)
 		else
 			-- ── Human killer: open the character-select UI as normal ─────────
@@ -188,6 +186,26 @@ function GM.ROUND:Start(forceKiller)
 	end
 
 	print("Start round " .. GM.ROUND.Count .. "/" .. GetConVar("slashers_round_max"):GetInt())
+end
+
+-- ─────────────────────────────────────────────
+-- Synchronisation barrier: fires sls_round_PostStart only when BOTH
+-- the killer pipeline AND the survivor class-select pipeline are complete.
+-- Prevents the cinematic overlay from appearing before survivors have
+-- finished choosing their class.
+-- ─────────────────────────────────────────────
+function GM.ROUND:CheckSetupComplete()
+	if not self.KillerReady or not self.SurvivorsReady then return end
+
+	print("[Setup-Pipeline] Both killer and survivors ready — firing PostStart.")
+	hook.Run("sls_round_PostStart")
+	net.Start("sls_round_PostStart")
+		net.WriteInt(self.Count, 16)
+		net.WriteInt(self.EndTime, 16)
+		net.WriteTable(self.Survivors)
+		net.WriteEntity(self.Killer)
+		net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
+	net.Broadcast()
 end
 
 function GM.ROUND:StartWaitingPolice()

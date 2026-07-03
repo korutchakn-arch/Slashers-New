@@ -38,16 +38,9 @@ local function StartWeaponSelectWatchdog(ply)
 		ply.InitialWeapon   = weaponClass
 		ply.HasChosenWeapon = true
 
-		-- Survivor freeze/unfreeze is handled centrally in the sls_round_PostStart
-		-- hook below — do NOT duplicate it here.
-		hook.Run("sls_round_PostStart")
-		net.Start("sls_round_PostStart")
-			net.WriteInt(GAMEMODE.ROUND.Count, 16)
-			net.WriteInt(GAMEMODE.ROUND.EndTime, 16)
-			net.WriteTable(GAMEMODE.ROUND.Survivors)
-			net.WriteEntity(GAMEMODE.ROUND.Killer)
-			net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
-		net.Broadcast()
+		-- Signal killer is ready; PostStart only fires once survivors are also done.
+		GAMEMODE.ROUND.KillerReady = true
+		GAMEMODE.ROUND:CheckSetupComplete()
 
 		net.Start("sls_killer_showintro")
 			net.WriteString(ply.ChosenCharacter or "")
@@ -142,17 +135,11 @@ net.Receive("sls_killer_selectweapon", function(len, ply)
 	ply.InitialWeapon   = weaponClass
 	ply.HasChosenWeapon = true
 
-	-- ─── 1. FIRE PostStart globally so ALL clients receive correct character data ───
-	-- Survivor freeze/unfreeze is now handled centrally in the sls_round_PostStart
-	-- hook at the bottom of this file, covering ALL paths (normal, bot bypass, watchdog).
-	hook.Run("sls_round_PostStart")
-	net.Start("sls_round_PostStart")
-		net.WriteInt(GAMEMODE.ROUND.Count, 16)
-		net.WriteInt(GAMEMODE.ROUND.EndTime, 16)
-		net.WriteTable(GAMEMODE.ROUND.Survivors)
-		net.WriteEntity(GAMEMODE.ROUND.Killer)
-		net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
-	net.Broadcast()
+	-- ─── 1. Signal killer ready — PostStart fires only after BOTH sides are done ───
+	-- CheckSetupComplete() in sv_rounds.lua holds the barrier. Survivors must finish
+	-- their 10-second class-select window before PostStart (and the cinematic) fires.
+	GAMEMODE.ROUND.KillerReady = true
+	GAMEMODE.ROUND:CheckSetupComplete()
 
 	-- ─── 2. Keep the killer frozen until their cinematic finishes ───
 	-- Stage 3: show custom intro screen to the killer only
@@ -164,10 +151,9 @@ end)
 
 -- ─────────────────────────────────────────────
 -- Centralised survivor freeze/unfreeze for the cinematic window.
--- Fires on sls_round_PostStart regardless of which path triggered it:
---   • Normal weapon selection (net.Receive sls_killer_selectweapon)
---   • Bot killer bypass (inside net.Receive sls_killer_selectchar)
---   • 30-second weapon watchdog timer
+-- Fires on sls_round_PostStart, which is now gated by GM.ROUND:CheckSetupComplete()
+-- so it only runs once BOTH the killer AND survivors are fully ready.
+-- This guarantees the cinematic never overlaps the class-select menu.
 -- Using GAMEMODE (not GM) for runtime safety.
 -- ─────────────────────────────────────────────
 hook.Add("sls_round_PostStart", "sls_Setup_FreezeSurvivors", function()

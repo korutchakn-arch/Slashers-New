@@ -1,11 +1,13 @@
 -- Slashers — Survivor Setup Pipeline (Server)
 -- Players choose their survivor class via a selection menu.
 -- Pipeline:
---   1. sls_round_PreStart         → reset ChosenClass for all players
---   2. sls_surv_KillerCharSelected → killer has picked their character; teams are now
---                                    fully assigned → open survivor class-select menu
---   3. sls_surv_selectclass        → survivor clicks a class → store ply.ChosenClass
---   4. sls_round_PostStart         → ApplyChosenClasses() finalizes every survivor's class
+--   1. sls_round_PreStart           → reset ChosenClass for all players
+--   2. sls_surv_KillerCharSelected  → killer has picked their character; teams are now
+--                                      fully assigned → open survivor class-select menu
+--   3. sls_surv_selectclass         → survivor clicks a class → store ply.ChosenClass
+--   4. sls_surv_ClassSetupComplete  → ALL survivors have chosen (or timed out) →
+--                                      ApplyChosenClasses(), set SurvivorsReady=true,
+--                                      call CheckSetupComplete() to potentially fire PostStart
 
 util.AddNetworkString("sls_surv_opencharselect")
 util.AddNetworkString("sls_surv_selectclass")
@@ -93,6 +95,26 @@ StartSurvClassWatchdog = function(ply)
         -- Notify client to close menu
         net.Start("sls_surv_classsetup_timeout")
         net.Send(ply)
+
+        -- Check whether every survivor is now accounted for.
+        -- If so, signal the synchronisation barrier so PostStart can fire.
+        local allDone = true
+        local gm2 = GAMEMODE
+        if gm2 and gm2.ROUND and gm2.ROUND.Survivors then
+            for _, s in ipairs(gm2.ROUND.Survivors) do
+                if IsValid(s) and not s.HasChosenSurvClass then
+                    allDone = false
+                    break
+                end
+            end
+        end
+        if allDone then
+            hook.Run("sls_surv_ClassSetupComplete")
+            if gm2 and gm2.ROUND then
+                gm2.ROUND.SurvivorsReady = true
+                gm2.ROUND:CheckSetupComplete()
+            end
+        end
     end)
 end
 
@@ -122,7 +144,7 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     ply.ChosenClass        = classID
     ply.HasChosenSurvClass = true
 
-    -- Cancel watchdog
+    -- Cancel watchdog — this survivor chose in time
     timer.Remove("sls_SurvSetup_Watchdog_" .. ply:SteamID64())
 
     -- Sync chosen class to all clients for HUD/scoreboard display
@@ -132,13 +154,34 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     net.Broadcast()
 
     print("[Surv-Setup] " .. ply:Nick() .. " chose class: " .. classKey)
+
+    -- Check whether every survivor has now chosen. If so, trigger the
+    -- synchronisation barrier so PostStart can fire once the killer is ready too.
+    local allDone = true
+    local gm2 = GAMEMODE
+    if gm2 and gm2.ROUND and gm2.ROUND.Survivors then
+        for _, s in ipairs(gm2.ROUND.Survivors) do
+            if IsValid(s) and not s.HasChosenSurvClass then
+                allDone = false
+                break
+            end
+        end
+    end
+    if allDone then
+        hook.Run("sls_surv_ClassSetupComplete")
+        if gm2 and gm2.ROUND then
+            gm2.ROUND.SurvivorsReady = true
+            gm2.ROUND:CheckSetupComplete()
+        end
+    end
 end)
 
 -- ─────────────────────────────────────────────
 -- ApplyChosenClasses — finalize each survivor's chosen class.
--- Defined on GAMEMODE.CLASS (the live table at runtime) rather than GM
--- (which is only valid during the file-load phase).
--- Called from the sls_round_PostStart hook below.
+-- Called from sls_surv_ClassSetupComplete (below), which fires only once
+-- ALL survivors have chosen (or their 10-second watchdog has expired).
+-- This guarantees survivors always get their full selection window and the
+-- cinematic can never appear on top of the still-open class-select menu.
 -- ─────────────────────────────────────────────
 local function ApplyChosenClasses(self)
     local gm = GAMEMODE
@@ -187,14 +230,17 @@ if GAMEMODE and GAMEMODE.CLASS then
 end
 
 -- ─────────────────────────────────────────────
--- Finalize survivor classes after the round officially starts.
--- GAMEMODE is the correct runtime reference — GM can be nil by the time
--- this hook fires asynchronously during play.
+-- Fired when all survivors have chosen their class (or timed out).
+-- This is the survivor side of the synchronisation barrier:
+--   • ApplyChosenClasses() is called here to lock in each survivor's class.
+--   • SurvivorsReady is set to true.
+--   • CheckSetupComplete() is called so PostStart fires only when the killer
+--     is also ready — preventing cinematic/menu overlap.
 -- ─────────────────────────────────────────────
-hook.Add("sls_round_PostStart", "sls_SurvSetup_ApplyClasses", function()
+hook.Add("sls_surv_ClassSetupComplete", "sls_SurvSetup_ApplyClasses", function()
     local gm = GAMEMODE
     if not gm or not gm.CLASS then
-        print("[Surv-Setup] GAMEMODE.CLASS not ready at PostStart — skipping ApplyChosenClasses.")
+        print("[Surv-Setup] GAMEMODE.CLASS not ready at ClassSetupComplete — skipping ApplyChosenClasses.")
         return
     end
 
