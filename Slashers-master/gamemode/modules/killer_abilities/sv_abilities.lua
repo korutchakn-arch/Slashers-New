@@ -282,7 +282,7 @@ function KA_proxy_UpdateKillerInView()
     end
 end
 
-function KA_proxy_UseAbility(ply, selfRef)
+function KA_proxy_UseAbility(ply)
     if not GM.ROUND.Active or not IsValid(ply) then return end
 
     local PlayerWeapon = ply:GetActiveWeapon()
@@ -326,8 +326,12 @@ function KA_proxy_UseAbility(ply, selfRef)
                 ply:Give(ply.InitialWeapon)
             end
             ply:SetColor(KNormal)
-            ply:SetWalkSpeed(selfRef.WalkSpeed or 200)
-            ply:SetRunSpeed(selfRef.RunSpeed or 200)
+            local charKey = ply.ChosenCharacter
+            local charData = charKey and GAMEMODE.KillerCharacters and GAMEMODE.KillerCharacters[charKey]
+            local baseWalk = charData and charData.walk or 200
+            local baseRun = charData and charData.run or 200
+            ply:SetWalkSpeed(baseWalk)
+            ply:SetRunSpeed(baseRun)
             ply:DrawShadow(true)
             ply:SetRenderMode(RENDERMODE_TRANSALPHA)
             ply.InvisibleActive = false
