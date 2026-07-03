@@ -143,15 +143,27 @@ local function OpenCharSelectMenu()
             draw.RoundedBox(4, 0, 0, w, h, CLR_CARDBG)
             surface.SetDrawColor(CLR_CARDBDR)
             surface.DrawOutlinedRect(0, 0, w, h)
-            -- Show class icon if available
+            -- Show class icon if available.
+            -- survData.icon may be a pre-cached IMaterial OR a legacy string path —
+            -- handle both without passing userdata into Material(), which would crash.
             if survData.icon then
-                local icon = Material(survData.icon)
+                local icon
+                local iconType = type(survData.icon)
+                if iconType == "IMaterial" then
+                    -- Already a cached material object — use it directly.
+                    icon = survData.icon
+                elseif iconType == "string" then
+                    -- Legacy string path — resolve it now.
+                    icon = Material(survData.icon)
+                end
+
                 if icon and not icon:IsError() then
-                    surface.SetDrawColor(255, 255, 255, 200)
                     local iconSize = 96
                     local ix = (w - iconSize) / 2
                     local iy = (h - iconSize) / 2
-                    surface.DrawRect(ix, iy, iconSize, iconSize)
+                    surface.SetDrawColor(255, 255, 255, 200)
+                    surface.SetMaterial(icon)          -- bind texture before drawing
+                    surface.DrawTexturedRect(ix, iy, iconSize, iconSize)
                     return
                 end
             end
