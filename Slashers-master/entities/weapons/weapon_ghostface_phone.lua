@@ -39,7 +39,7 @@ SWEP.Author          = "Slashers Dev"
 -- Crowbar is used as the dummy base — it has full TFA animation sequences
 -- (idle, draw, holster) so the animation parser never crashes.
 -- It is completely hidden at runtime (see ShowViewModel + PreDrawViewModel below).
-SWEP.ViewModel       = "models/weapons/v_crowbar.mdl"
+SWEP.ViewModel       = "models/weapons/c_crowbar.mdl"
 SWEP.ViewModelFOV    = 50
 SWEP.WorldModel      = "models/weapons/w_crowbar.mdl"
 
@@ -51,7 +51,10 @@ SWEP.ShowViewModel   = false
 SWEP.ShowWorldModel  = false
 
 -- Disable hands parenting in TFA's ViewModelDrawn() loop.
-SWEP.UseHands        = false
+-- UseHands=true initialises the c_model skeleton with player hands;
+-- TFA needs this so SCK can resolve ValveBiped.Bip01_R_Hand bone positions.
+-- The hands are kept invisible via PreDrawViewModel (Debug/hsv material).
+SWEP.UseHands        = true
 
 -- World model offset (only affects the hidden fallback crowbar)
 SWEP.Offset = {
@@ -120,7 +123,7 @@ SWEP.AllowViewAttachment = false
 SWEP.VElements = {
 	["base"] = {
 		type             = "Model",
-		model            = "models/weapons/v_crowbar.mdl",
+		model            = "models/weapons/c_crowbar.mdl",
 		bone             = "ValveBiped.Bip01_R_Hand",
 		rel              = "",
 		pos              = Vector(0, 0, 0),
