@@ -231,7 +231,8 @@ if CLIENT then
 		if IsValid(vm) then
 			vm:SetMaterial("Debug/hsv")
 		end
-		return true -- suppresses the engine's own vm:DrawModel() call
+		-- Do NOT return true here, otherwise the engine aborts the render pipeline 
+		-- and ViewModelDrawn (which draws VElements) will never be called!
 	end
 
 	-- ViewModelDrawn() is called by TFA's base AFTER the engine would have drawn
