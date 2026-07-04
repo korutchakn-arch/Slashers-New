@@ -99,7 +99,7 @@ GM.KillerAbilities["myers"] = {
 
 -----------------------------------------------------------
 -- PROXY
--- Active: UseAbility() toggle (server) + Think + ShouldCollide
+-- Active: UseAbility() toggle (server) + Think
 -- Passive: Invisibility post-process + killer icon for shy girl (client)
 -----------------------------------------------------------
 GM.KillerAbilities["proxy"] = {
@@ -111,9 +111,7 @@ GM.KillerAbilities["proxy"] = {
         {name = "PostPlayerDeath",    tag = "sls_ka_proxy_ResetViewKiller"},
         {name = "sls_round_PostStart", tag = "sls_ka_proxy_ResetViewKillerAfterEnd"},
         {name = "sls_round_End",      tag = "sls_ka_proxy_ResetViewKillerAfterEnd"},
-        {name = "InitPostEntity",     tag = "sls_ka_proxy_initCol"},
-        {name = "sls_round_PostStart", tag = "sls_ka_proxy_initCol"},
-        {name = "ShouldCollide",      tag = "sls_ka_proxy_ShouldCollide"},
+
         -- Client
         {name = "RenderScreenspaceEffects", tag = "sls_ka_proxy_InvisibleVision"},
         {name = "Think",              tag = "sls_ka_proxy_CheckKillerInSight"},

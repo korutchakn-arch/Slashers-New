@@ -449,37 +449,6 @@ function KA_proxy_ResetViewKillerAfterEnd()
     ResetProxyVisibility()
 end
 
-function KA_proxy_initCol()
-    for _, v in ipairs(ents.GetAll()) do
-        -- Only players need custom collision; doors are solid and handled by default
-        if v:IsPlayer() then
-            v:SetCustomCollisionCheck(true)
-        end
-    end
-end
-
-function KA_proxy_ShouldCollide(ent1, ent2)
-    -- Identify if either entity is an invisible (alpha-0) player
-    local invisPlayer, other
-    if ent1:IsPlayer() and ent1:GetColor().a == 0 then
-        invisPlayer = ent1
-        other = ent2
-    elseif ent2:IsPlayer() and ent2:GetColor().a == 0 then
-        invisPlayer = ent2
-        other = ent1
-    else
-        return true -- Neither entity is an invisible player; use default collision
-    end
-
-    -- Invisible Proxy only passes through other players
-    -- Doors, props, and world geometry are all solid to prevent exploits
-    if other:IsPlayer() then
-        return false
-    end
-
-    -- Collide with everything else (world, doors, props, geometry)
-    return true
-end
 
 -- Register UseAbility for Proxy
 if GM.KillerAbilities["proxy"] then
