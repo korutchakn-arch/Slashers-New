@@ -146,7 +146,7 @@ local function OpenStaffPanel()
 		net.Start("sls_staff_action")
 		net.WriteString("give_weapon")
 		net.WriteEntity(LocalPlayer())
-		net.WriteString("weapon_tfa_sck")  -- TFA SWEP Construction Kit creator class
+		net.WriteString("swep_construction_kit")  -- Original SWEP Construction Kit class
 		net.SendToServer()
 		frame:Close()
 	end
