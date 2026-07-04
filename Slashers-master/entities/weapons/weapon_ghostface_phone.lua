@@ -46,8 +46,9 @@ SWEP.WorldModel      = "models/weapons/w_crowbar.mdl"
 SWEP.HoldType        = "slam"
 SWEP.DefaultHoldType = "slam"
 
--- Tells TFA's InitMods() to call vm:SetMaterial("Debug/hsv") — hides the crowbar mesh.
-SWEP.ShowViewModel   = false
+-- Show the viewmodel so player hands render — the crowbar mesh is hidden
+-- separately in PreDrawViewModel via Debug/hsv material override.
+SWEP.ShowViewModel   = true
 SWEP.ShowWorldModel  = false
 
 -- Disable hands parenting in TFA's ViewModelDrawn() loop.
@@ -141,8 +142,8 @@ SWEP.VElements = {
 		model            = "models/weapons/slashers_phone.mdl",
 		bone             = "ValveBiped.Bip01_R_Hand",
 		rel              = "",
-		pos              = Vector(3, -2, 4),   -- tweak in-game
-		angle            = Angle(0, -90, -90), -- tweak in-game
+		pos              = Vector(4, 4, 0),    -- tweak in-game
+		angle            = Angle(0, 0, -90),  -- tweak in-game
 		size             = Vector(0.2, 0.2, 0.2), -- Blender 1m→Source unit correction
 		color            = Color(255, 255, 255, 255),
 		surpresslightning = true,
@@ -223,10 +224,19 @@ end
 -- Client-side rendering overrides
 -- ─────────────────────────────────────────────────────────────────────────────
 if CLIENT then
-	-- Let TFA base natively handle ShowViewModel = false and VElements rendering.
+	-- Let TFA base natively handle VElements rendering.
 
-	-- We can't leave DrawWorldModel empty, otherwise WElements never draw!
-	-- TFA base requires calling the base method to render WElements.
+	-- Apply Debug/hsv to the crowbar mesh every frame so it stays invisible,
+	-- but do NOT return true — returning true would suppress ViewModelDrawn,
+	-- which is the hook TFA uses to render VElements.
+	function SWEP:PreDrawViewModel(vm, wep, ply)
+		if IsValid(vm) then
+			vm:SetMaterial("Debug/hsv")
+		end
+		-- No return value — lets the engine proceed so ViewModelDrawn fires.
+	end
+
+	-- TFA requires calling the base method here to render WElements.
 	function SWEP:DrawWorldModel()
 		if self.BaseClass and self.BaseClass.DrawWorldModel then
 			self.BaseClass.DrawWorldModel(self)
