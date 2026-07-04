@@ -226,12 +226,14 @@ end
 if CLIENT then
 	-- Let TFA base natively handle VElements rendering.
 
-	-- Apply Debug/hsv to the crowbar mesh every frame so it stays invisible,
+	-- Apply an invisible material to the crowbar mesh every frame so it stays invisible,
 	-- but do NOT return true — returning true would suppress ViewModelDrawn,
 	-- which is the hook TFA uses to render VElements.
 	function SWEP:PreDrawViewModel(vm, wep, ply)
 		if IsValid(vm) then
-			vm:SetMaterial("Debug/hsv")
+			vm:SetMaterial("engine/occlusionproxy")
+			vm:SetColor(Color(255, 255, 255, 0))
+			vm:SetRenderMode(RENDERMODE_TRANSALPHA)
 		end
 		-- No return value — lets the engine proceed so ViewModelDrawn fires.
 	end
