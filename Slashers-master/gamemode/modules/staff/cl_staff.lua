@@ -38,7 +38,7 @@ local function OpenStaffPanel()
 		StaffPanel:Remove()
 	end
 
-	local frameW, frameH = 480, 480
+	local frameW, frameH = 480, 540
 	local frame = vgui.Create("DFrame")
 	frame:SetSize(frameW, frameH)
 	frame:Center()
@@ -115,6 +115,41 @@ local function OpenStaffPanel()
 
 	-- Play as Survivor — directly makes the admin a survivor (no picker)
 	MakeStaffButton(frame, "Play as Survivor", 420, "play_survivor", LocalPlayer())
+
+	-- ─────────────────────────────────────────────────────────────────────
+	-- Section: Dev Tools
+	-- ─────────────────────────────────────────────────────────────────────
+	local section4Label = vgui.Create("DLabel", frame)
+	section4Label:SetPos(16, 472)
+	section4Label:SetSize(frameW - 32, 20)
+	section4Label:SetText("Dev Tools")
+	section4Label:SetFont("DermaDefaultBold")
+	section4Label:SetTextColor(Color(200, 60, 60))
+
+	-- Gives the admin the TFA SWEP Construction Kit creator tool so VElements
+	-- positions can be adjusted in-game without needing the spawnmenu.
+	local sckBtn = vgui.Create("DButton", frame)
+	sckBtn:SetPos(16, 494)
+	sckBtn:SetSize(frameW - 32, 40)
+	sckBtn:SetText("")
+	sckBtn:SetContentAlignment(5)
+	sckBtn.Paint = function(s, w, h)
+		local hovered = s:IsHovered()
+		local bg     = hovered and Color(90, 20, 20) or Color(45, 15, 15)
+		local border = hovered and Color(220, 60, 60, 255) or Color(110, 30, 30, 180)
+		draw.RoundedBox(4, 0, 0, w, h, bg)
+		surface.SetDrawColor(border)
+		surface.DrawOutlinedRect(0, 0, w, h)
+		draw.SimpleText("Give SCK Creator Tool", "horrortext", w / 2, h / 2, hovered and Color(255, 200, 200) or Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+	sckBtn.DoClick = function()
+		net.Start("sls_staff_action")
+		net.WriteString("give_weapon")
+		net.WriteEntity(LocalPlayer())
+		net.WriteString("weapon_tfa_sck")  -- TFA SWEP Construction Kit creator class
+		net.SendToServer()
+		frame:Close()
+	end
 
 	-- Teleport to Player — opens a DermaMenu dropdown
 	local teleportBtn = vgui.Create("DButton", frame)
