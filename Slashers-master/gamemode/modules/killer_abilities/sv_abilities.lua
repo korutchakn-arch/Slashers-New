@@ -451,8 +451,8 @@ end
 
 function KA_proxy_initCol()
     for _, v in ipairs(ents.GetAll()) do
-        local cls = v:GetClass()
-        if v:IsPlayer() or cls == "prop_door_rotating" then
+        -- Only players need custom collision; doors are solid and handled by default
+        if v:IsPlayer() then
             v:SetCustomCollisionCheck(true)
         end
     end
@@ -471,15 +471,13 @@ function KA_proxy_ShouldCollide(ent1, ent2)
         return true -- Neither entity is an invisible player; use default collision
     end
 
-    -- Always collide with the world (worldspawn) to prevent falling out of bounds
-    if other == game.GetWorld() then return true end
-
-    -- Pass through other players and rotating doors only
-    if other:IsPlayer() or other:GetClass() == "prop_door_rotating" then
+    -- Invisible Proxy only passes through other players
+    -- Doors, props, and world geometry are all solid to prevent exploits
+    if other:IsPlayer() then
         return false
     end
 
-    -- Collide normally with everything else (solid props, geometry, etc.)
+    -- Collide with everything else (world, doors, props, geometry)
     return true
 end
 
