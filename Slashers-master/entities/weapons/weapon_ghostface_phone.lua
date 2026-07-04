@@ -223,36 +223,5 @@ end
 -- Client-side rendering overrides
 -- ─────────────────────────────────────────────────────────────────────────────
 if CLIENT then
-
-	-- Belt-and-suspenders: intercept the engine's default viewmodel draw call
-	-- and return true to cancel it. VElements are drawn by ViewModelDrawn() below.
-	function SWEP:PreDrawViewModel(vm, wep, ply)
-		-- Ensure the crowbar mesh stays invisible every frame
-		if IsValid(vm) then
-			vm:SetMaterial("Debug/hsv")
-		end
-		-- Do NOT return true here, otherwise the engine aborts the render pipeline 
-		-- and ViewModelDrawn (which draws VElements) will never be called!
-	end
-
-	-- ViewModelDrawn() is called by TFA's base AFTER the engine would have drawn
-	-- the default viewmodel. We call the base implementation, which runs the full
-	-- VElements rendering loop (CreateModels → GetBoneOrientation → DrawModel).
-	function SWEP:ViewModelDrawn()
-		if self.BaseClass and self.BaseClass.ViewModelDrawn then
-			self.BaseClass.ViewModelDrawn(self)
-		end
-	end
-
-	-- Completely suppress the world-space crowbar.
-	-- TFA's WElements loop runs inside the base's AddWorldModelToDraw / PostDrawOpaqueRenderables.
-	-- Emptying DrawWorldModel prevents the crowbar from rendering while leaving WElements intact.
-	function SWEP:DrawWorldModel()
-		-- Intentionally empty — WElements["phone"] handles third-person rendering.
-	end
-
-	function SWEP:DrawWorldModelTranslucent()
-		-- Intentionally empty
-	end
-
+	-- Let TFA base natively handle ShowViewModel = false and VElements rendering.
 end
