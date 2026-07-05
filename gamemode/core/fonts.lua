@@ -50,8 +50,8 @@ surface.CreateFont( "Bohemian typewriter", {
 surface.CreateFont( "Bohemian typewriter STITLE", {
 	font = "Bohemian typewriter", -- Use the font-name which is shown to you by your operating system Font Viewer, not the file name
 	extended = true,
-	size = ScreenScale(10),
-	weight = 500,
+	size = ScreenScale(16),
+	weight = 800,
 	blursize = 0,
 	scanlines = 0,
 	antialias = true,
@@ -67,7 +67,7 @@ surface.CreateFont( "Bohemian typewriter STITLE", {
 surface.CreateFont( "KeyboardFont", {
 	font = "aa QWERTZ-Tasten", -- Use the font-name which is shown to you by your operating system Font Viewer, not the file name
 	extended = true,
-	size = ScreenScale(18),
+	size = ScreenScale(40),
 	weight = 500,
 	blursize = 0,
 	scanlines = 0,

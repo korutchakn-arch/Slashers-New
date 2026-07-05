@@ -6,9 +6,14 @@
 -- @Last Modified time: 2017-07-26 22:32:22
 
 
-util.AddNetworkString( "slash_WorkShopCheck" )
+util.AddNetworkString("slash_WorkShopCheck")
 function WSDLCheckOpen(ply)
-    net.Start("slash_WorkShopCheck")
+	-- Guard: only send once per player to avoid conflicts with other addons
+	-- that also call net.Start("slash_WorkShopCheck") on PlayerInitialSpawn.
+	if ply._wsdlChecked then return end
+	ply._wsdlChecked = true
+
+	net.Start("slash_WorkShopCheck")
 	net.Send(ply)
 end
 hook.Add("PlayerInitialSpawn", "WSDLCheckOpen", WSDLCheckOpen)

@@ -156,7 +156,7 @@ end
 -- Spawns one fusebox at a random GM.MAP.Goal.Fusebox location.
 ------------------------------------------------------------
 
-function KA_jason_PostStart()
+function KA_jason_sls_round_PostStart()
     -- Reset blackout state at round start
     GAMEMODE:ResetBlackout()
 
@@ -174,13 +174,32 @@ function KA_jason_PostStart()
     GM.ROUND._fusebox = fusebox
 end
 
-function KA_jason_End()
+function KA_jason_sls_round_End()
     -- Clean up the fusebox if it still exists
     if IsValid(GM.ROUND._fusebox) then
         GM.ROUND._fusebox:Remove()
         GM.ROUND._fusebox = nil
     end
 end
+
+--[[
+    sls_debug_fusebox
+    Admin-only debug command to locate and teleport to the active sls_fusebox.
+    Usage: sls_debug_fusebox
+]]
+concommand.Add("sls_debug_fusebox", function(ply, cmd, args)
+    -- Reject console or non-admin callers
+    if not IsValid(ply) or not ply:IsAdmin() then return end
+
+    if not GM.ROUND or not IsValid(GM.ROUND._fusebox) then
+        ply:ChatPrint("[Fusebox Debug] No active fusebox found (is Jason the killer?)")
+        return
+    end
+
+    local pos = GM.ROUND._fusebox:GetPos()
+    ply:ChatPrint("[Fusebox Debug] Position: " .. tostring(pos))
+    ply:SetPos(pos + Vector(0, 0, 50))
+end)
 
 -----------------------------------------------------------
 -- 6. MYERS ABILITY — Wallhack one victim
