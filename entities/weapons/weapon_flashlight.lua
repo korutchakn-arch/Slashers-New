@@ -148,7 +148,19 @@ end
 function SWEP:Think()
 	if SERVER && IsValid(self.projectedLight) then
 		if IsValid(self.Owner) then
-			self.projectedLight:SetPos( self.Owner:EyePos() + self.Owner:GetAimVector() * 2 );
+			local att = self.Owner:LookupAttachment("anim_attachment_RH")
+			if att > 0 then
+				local attTbl = self.Owner:GetAttachment(att)
+				if attTbl then
+					-- Point the light in the direction the player is aiming, but position it at the hand
+					self.projectedLight:SetPos(attTbl.Pos + self.Owner:GetAimVector() * 15)
+					self.projectedLight:SetAngles(self.Owner:EyeAngles())
+					return
+				end
+			end
+			
+			-- Fallback to eyes if attachment is missing
+			self.projectedLight:SetPos( self.Owner:EyePos() + self.Owner:GetAimVector() * 15 );
 			self.projectedLight:SetAngles( self.Owner:EyeAngles() );
 		else
 			SafeRemoveEntity(self.projectedLight)
