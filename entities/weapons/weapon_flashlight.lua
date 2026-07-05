@@ -102,10 +102,26 @@ end
 
 function SWEP:Holster()
 	SafeRemoveEntity(self.projectedLight)
-	self.Owner:SetNWEntity("FL_Flashlight", nil)
+	if IsValid(self.Owner) then
+		self.Owner:SetNWEntity("FL_Flashlight", nil)
+	end
 	self.Active = false
-
 	return true
+end
+
+function SWEP:OnRemove()
+	SafeRemoveEntity(self.projectedLight)
+	if IsValid(self.Owner) then
+		self.Owner:SetNWEntity("FL_Flashlight", nil)
+	end
+end
+
+function SWEP:OnDrop()
+	SafeRemoveEntity(self.projectedLight)
+	if IsValid(self.Owner) then
+		self.Owner:SetNWEntity("FL_Flashlight", nil)
+	end
+	self.Active = false
 end
 
 function SWEP:BuildLight()
@@ -131,8 +147,12 @@ end
 
 function SWEP:Think()
 	if SERVER && IsValid(self.projectedLight) then
-		self.projectedLight:SetPos( self.Owner:EyePos() + self.Owner:GetAimVector() * 2 );
-		self.projectedLight:SetAngles( self.Owner:EyeAngles() );
+		if IsValid(self.Owner) then
+			self.projectedLight:SetPos( self.Owner:EyePos() + self.Owner:GetAimVector() * 2 );
+			self.projectedLight:SetAngles( self.Owner:EyeAngles() );
+		else
+			SafeRemoveEntity(self.projectedLight)
+		end
 	end
 end
 
