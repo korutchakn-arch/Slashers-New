@@ -38,7 +38,7 @@ local function OpenStaffPanel()
 		StaffPanel:Remove()
 	end
 
-	local frameW, frameH = 480, 540
+	local frameW, frameH = 480, 588
 	local frame = vgui.Create("DFrame")
 	frame:SetSize(frameW, frameH)
 	frame:Center()
@@ -87,11 +87,12 @@ local function OpenStaffPanel()
 	section1Label:SetFont("DermaDefaultBold")
 	section1Label:SetTextColor(Color(200, 60, 60))
 
-	MakeStaffButton(frame, "Force Start Round", 82,  "force_start", Entity(0))
-	MakeStaffButton(frame, "Force End Round",   130, "force_end",   Entity(0))
+	MakeStaffButton(frame, "Force Start Round", 82,  "force_start",    Entity(0))
+	MakeStaffButton(frame, "Force End Round",   130, "force_end",      Entity(0))
+	MakeStaffButton(frame, "Unlimited Time",    178, "unlimited_time", Entity(0))
 
 	-- Section: Killer Controls
-	local section2Y = 184
+	local section2Y = 232
 	local section2Label = vgui.Create("DLabel", frame)
 	section2Label:SetPos(16, section2Y)
 	section2Label:SetSize(frameW - 32, 20)
@@ -99,10 +100,10 @@ local function OpenStaffPanel()
 	section2Label:SetFont("DermaDefaultBold")
 	section2Label:SetTextColor(Color(200, 60, 60))
 
-	MakeStaffButton(frame, "Make Me Killer (Restart)", 206, "set_killer", LocalPlayer())
+	MakeStaffButton(frame, "Make Me Killer (Restart)", 254, "set_killer", LocalPlayer())
 
 	-- Section: Player Controls
-	local section3Y = 254
+	local section3Y = 302
 	local section3Label = vgui.Create("DLabel", frame)
 	section3Label:SetPos(16, section3Y)
 	section3Label:SetSize(frameW - 32, 20)
@@ -111,16 +112,16 @@ local function OpenStaffPanel()
 	section3Label:SetTextColor(Color(200, 60, 60))
 
 	-- NoClip toggle
-	MakeStaffButton(frame, "Toggle NoClip", 276, "noclip", LocalPlayer())
+	MakeStaffButton(frame, "Toggle NoClip", 324, "noclip", LocalPlayer())
 
 	-- Play as Survivor — directly makes the admin a survivor (no picker)
-	MakeStaffButton(frame, "Play as Survivor", 420, "play_survivor", LocalPlayer())
+	MakeStaffButton(frame, "Play as Survivor", 468, "play_survivor", LocalPlayer())
 
 	-- ─────────────────────────────────────────────────────────────────────
 	-- Section: Dev Tools
 	-- ─────────────────────────────────────────────────────────────────────
 	local section4Label = vgui.Create("DLabel", frame)
-	section4Label:SetPos(16, 472)
+	section4Label:SetPos(16, 520)
 	section4Label:SetSize(frameW - 32, 20)
 	section4Label:SetText("Dev Tools")
 	section4Label:SetFont("DermaDefaultBold")
@@ -129,7 +130,7 @@ local function OpenStaffPanel()
 	-- Gives the admin the TFA SWEP Construction Kit creator tool so VElements
 	-- positions can be adjusted in-game without needing the spawnmenu.
 	local sckBtn = vgui.Create("DButton", frame)
-	sckBtn:SetPos(16, 494)
+	sckBtn:SetPos(16, 542)
 	sckBtn:SetSize(frameW - 32, 40)
 	sckBtn:SetText("")
 	sckBtn:SetContentAlignment(5)
@@ -153,7 +154,7 @@ local function OpenStaffPanel()
 
 	-- Teleport to Player — opens a DermaMenu dropdown
 	local teleportBtn = vgui.Create("DButton", frame)
-	teleportBtn:SetPos(16, 324)
+	teleportBtn:SetPos(16, 372)
 	teleportBtn:SetSize(frameW - 32, 40)
 	teleportBtn:SetText("")
 	teleportBtn:SetContentAlignment(5)
@@ -183,7 +184,7 @@ local function OpenStaffPanel()
 
 	-- Kick Player — opens a DermaMenu dropdown
 	local kickBtn = vgui.Create("DButton", frame)
-	kickBtn:SetPos(16, 372)
+	kickBtn:SetPos(16, 420)
 	kickBtn:SetSize(frameW - 32, 40)
 	kickBtn:SetText("")
 	kickBtn:SetContentAlignment(5)

@@ -98,6 +98,18 @@ net.Receive("sls_staff_action", function(len, ply)
 			target:SetSurvClass(chosenClass)
 			ply:ChatPrint("[Staff] " .. target:Nick() .. " is now a Survivor.")
 		end
+
+	elseif action == "unlimited_time" then
+		-- Cap at 32,000 to guarantee the value fits inside the signed 16-bit
+		-- net.WriteInt used by GM.ROUND:UpdateEndTime (sv_rounds.lua:298).
+		-- CurTime() + 30000 can exceed 32767 on servers with >~46 min uptime.
+		local safeEndTime = math.min(CurTime() + 30000, 32000)
+		if GAMEMODE.ROUND and GAMEMODE.ROUND.Active then
+			GAMEMODE.ROUND:UpdateEndTime(safeEndTime)
+			ply:ChatPrint("[Staff] Round timer extended to maximum (32,000s cap applied).")
+		else
+			ply:ChatPrint("[Staff] No active round to extend.")
+		end
 	end
 end)
 
