@@ -10,6 +10,8 @@ AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
+util.AddNetworkString("sls_blackout_sync")
+
 -- Power-down sound (map-wide)
 sound.Add({
     name    = "slashers_fusebox_powerdown",
@@ -36,6 +38,19 @@ end
 ------------------------------------------------------------
 function GM:ResetBlackout()
     blackoutActive = false
+    engine.LightStyle(0, "m")
+
+    -- Re-enable all map lights
+    for _, ent in ipairs(ents.FindByClass("light*")) do
+        if IsValid(ent) then ent:Fire("TurnOn", "", 0) end
+    end
+    for _, ent in ipairs(ents.FindByClass("light_spot")) do
+        if IsValid(ent) then ent:Fire("TurnOn", "", 0) end
+    end
+
+    net.Start("sls_blackout_sync")
+        net.WriteFloat(0)
+    net.Broadcast()
 end
 
 ------------------------------------------------------------
@@ -61,12 +76,17 @@ local function TriggerBlackout(activator)
     -- 3. Override the engine's default fullbright style 0 to "a" (near-zero)
     engine.LightStyle(0, "a")
 
-    -- 4. Map-wide power-down sound
+    -- 4. Force all client lightmaps to re-render under zero ambient
+    net.Start("sls_blackout_sync")
+        net.WriteFloat(1)
+    net.Broadcast()
+
+    -- 5. Map-wide power-down sound
     for _, ply in ipairs(player.GetAll()) do
         ply:EmitSound("slashers_fusebox_powerdown", 100, 100, 1, CHAN_AUTO)
     end
 
-    -- 5. Notify all survivors that the lights went out
+    -- 6. Notify all survivors that the lights went out
     net.Start("notificationSlasher")
         net.WriteTable({"round_notif_blackout"})
         net.WriteString("warning")

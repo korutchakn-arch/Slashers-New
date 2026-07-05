@@ -1,0 +1,9 @@
+"slashers"
+{
+	"base"		"base"
+	"title"		"Slashers_Master"
+    "category"  "pvp"
+	"maps"		"^slash_"
+	"menusystem"	"1"
+	"workshopid"	"1092007703"
+}

@@ -8,8 +8,21 @@ include("shared.lua")
 ENT.RenderGroup = RENDERGROUP_BOTH
 
 ------------------------------------------------------------
--- Local state for fusebox interaction progress HUD
+-- Blackout network sync
+-- 1 = trigger full-darkness on survivors, 0 = restore lighting
 ------------------------------------------------------------
+net.Receive("sls_blackout_sync", function(len)
+    local state = net.ReadFloat()
+    timer.Simple(0.1, function()
+        if state == 1 then
+            -- Force all lightmaps to re-evaluate under zero ambient.
+            render.RedownloadAllLightmaps(true, true)
+        else
+            -- Restore: re-cache all lightmaps under normal lighting.
+            render.RedownloadAllLightmaps(true, true)
+        end
+    end)
+end)
 ------------------------------------------------------------
 -- ENT:Initialize
 ------------------------------------------------------------
