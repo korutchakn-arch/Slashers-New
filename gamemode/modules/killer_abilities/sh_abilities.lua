@@ -12,6 +12,7 @@ GM.KillerAbilities = {}
 if SERVER then
     -- Ghostface
     util.AddNetworkString("sls_kability_AddDoor")
+    util.AddNetworkString("sls_ghostface_phone_reveal") -- Phone SWEP: broadcast furthest-survivor position to Ghostface
     -- Jason
     util.AddNetworkString("sls_kability_AddStep")
     -- Myers

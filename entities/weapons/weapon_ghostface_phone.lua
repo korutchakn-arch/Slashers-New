@@ -194,14 +194,107 @@ SWEP.WElements = {
 -- Functions
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- Test ring — replace body with real ability trigger when ready.
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Phone Ability Constants
+-- ─────────────────────────────────────────────────────────────────────────────
+local PHONE_ABILITY_COOLDOWN    = 20   -- seconds between uses
+local PHONE_WEAPON_DURATION     = 10   -- seconds the survivor holds the phone
+local PHONE_ABILITY_SOUND       = "buttons/button14.wav"  -- played to Ghostface on success
+local PHONE_RINGING_SOUND       = "ambient/alarms/alarm1.wav" -- played to the called survivor
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PrimaryAttack — Ghostface Phone Ability
+--
+-- On left-click (SERVER side only):
+--   1. Cooldown gate — prevents spam.
+--   2. Iterates GM.ROUND:GetSurvivorsAlive() to find the furthest alive
+--      survivor from Ghostface (O(n) single pass, no heavy per-tick work).
+--   3. Gives that survivor a temporary instance of this phone SWEP.
+--   4. Sends the survivor's position to Ghostface via sls_ghostface_phone_reveal
+--      (mirrors Myers' sls_kability_Wallhack pattern with a dedicated net string
+--      to avoid colliding with Myers' client-side HUD handler).
+-- ─────────────────────────────────────────────────────────────────────────────
 function SWEP:PrimaryAttack()
 	if not IsValid(self) or not IsValid(self.Owner) then return end
+
+	-- Always advance fire timer so the SWEP click doesn't feel broken on client
 	self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
-	if SERVER then
-		self.Owner:EmitSound("buttons/button14.wav", 75, 100, 1.0)
-		self.Owner:ChatPrint("Ring ring!")
+
+	if not SERVER then return end
+
+	local killer = self.Owner
+
+	-- ── 1. Cooldown gate ──────────────────────────────────────────────────────
+	local lastUse = self._phoneAbilityLastUse or 0
+	if CurTime() - lastUse < PHONE_ABILITY_COOLDOWN then
+		local remaining = math.ceil(PHONE_ABILITY_COOLDOWN - (CurTime() - lastUse))
+		net.Start("notificationSlasher")
+			net.WriteTable({"killerhelp_cant_use_ability"})
+			net.WriteString("cross")
+		net.Send(killer)
+		killer:ChatPrint("[Phone] Ability on cooldown — " .. remaining .. "s remaining.")
+		return
 	end
+
+	-- ── 2. Round sanity check ─────────────────────────────────────────────────
+	local GM = GM or GAMEMODE
+	if not GM.ROUND or not GM.ROUND.Active then
+		killer:ChatPrint("[Phone] No active round.")
+		return
+	end
+
+	-- ── 3. Find the furthest alive survivor from Ghostface ────────────────────
+	-- Cache killer position — called once, not per-player per-tick.
+	local killerPos    = killer:GetPos()
+	local furthestSurv = nil
+	local furthestDist = -1
+
+	local survivors = GM.ROUND:GetSurvivorsAlive()
+	for _, surv in ipairs(survivors) do
+		if IsValid(surv) and surv:Alive() and surv ~= killer then
+			local dist = killerPos:DistToSqr(surv:GetPos()) -- DistToSqr: cheaper than Distance (no sqrt)
+			if dist > furthestDist then
+				furthestDist = dist
+				furthestSurv = surv
+			end
+		end
+	end
+
+	if not IsValid(furthestSurv) then
+		killer:ChatPrint("[Phone] No survivors found.")
+		return
+	end
+
+	-- ── 4. Stamp cooldown now that we have a valid target ─────────────────────
+	self._phoneAbilityLastUse = CurTime()
+
+	-- ── 5. Give the survivor the phone SWEP (server-only) ────────────────────
+	-- Strip any previous leftover copy to avoid stacking.
+	furthestSurv:StripWeapon("weapon_ghostface_phone")
+	furthestSurv:Give("weapon_ghostface_phone")
+	furthestSurv:EmitSound(PHONE_RINGING_SOUND, 75, 100, 1.0)
+	furthestSurv:ChatPrint("Your phone is ringing... Pick up!")
+
+	-- Auto-strip the phone after PHONE_WEAPON_DURATION seconds
+	local survRef = furthestSurv -- upvalue capture for the timer closure
+	timer.Simple(PHONE_WEAPON_DURATION, function()
+		if IsValid(survRef) then
+			survRef:StripWeapon("weapon_ghostface_phone")
+		end
+	end)
+
+	-- ── 6. Reveal the survivor's position to Ghostface ───────────────────────
+	-- Mirrors Myers' sls_kability_Wallhack pattern but uses a dedicated net
+	-- string so Myers' client HUD handler is not triggered for Ghostface.
+	local revealPos = furthestSurv:GetPos() + Vector(0, 0, 50) -- offset to head-level (same as Myers)
+	net.Start("sls_ghostface_phone_reveal")
+		net.WriteVector(revealPos)
+		net.WriteString(furthestSurv:Nick())
+	net.Send(killer)
+
+	-- ── 7. Ghostface feedback ─────────────────────────────────────────────────
+	killer:EmitSound(PHONE_ABILITY_SOUND, 75, 100, 1.0)
+	killer:ChatPrint("[Phone] Called " .. furthestSurv:Nick() .. " — tracking their position!")
 end
 
 function SWEP:SecondaryAttack()
