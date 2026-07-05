@@ -64,11 +64,12 @@ SWEP.AllowViewAttachment = false
 ------------------------------------------------------------
 function SWEP:PrimaryAttack()
     if not IsValid(self) or not IsValid(self.Owner) then return end
-    if not self.Owner:AllowFlashlight() then return end
     self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
-
-    local isOn = self.Owner:FlashlightIsOn()
-    self.Owner:Flashlight(not isOn)
+    if SERVER then
+        self.Owner:AllowFlashlight(true)
+        local isOn = self.Owner:FlashlightIsOn()
+        self.Owner:Flashlight(not isOn)
+    end
 end
 
 function SWEP:SecondaryAttack()

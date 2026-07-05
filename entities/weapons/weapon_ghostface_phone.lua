@@ -225,6 +225,9 @@ function SWEP:PrimaryAttack()
 
 	local killer = self.Owner
 
+	-- Team gate: survivors holding a dropped phone cannot use the ability.
+	if killer:Team() ~= TEAM_KILLER then return end
+
 	-- ── 1. Cooldown gate ──────────────────────────────────────────────────────
 	local lastUse = self._phoneAbilityLastUse or 0
 	if CurTime() - lastUse < PHONE_ABILITY_COOLDOWN then
@@ -311,7 +314,16 @@ function SWEP:PrimarySlash()
 end
 
 function SWEP:Holster()
+	if SERVER and IsValid(self.Owner) then
+		self.Owner:StopSound(PHONE_RINGING_SOUND)
+	end
 	return true
+end
+
+function SWEP:OnRemove()
+	if SERVER and IsValid(self.Owner) then
+		self.Owner:StopSound(PHONE_RINGING_SOUND)
+	end
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
