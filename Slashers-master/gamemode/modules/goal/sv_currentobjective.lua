@@ -15,10 +15,16 @@ hook.Add( "sls_round_PostStart", "StartObjectives", function( ply, text, public 
 		NbJerricanToFind = math.ceil(#player.GetAll() / 3)
 		NbJerricanToFound = NbJerricanToFind
 
-		net.Start( "objectiveSlasher" )
+		net.Start("objectiveSlasher")
 		net.WriteTable({"round_mission_jerrycan", NbJerricanToFind})
 		net.WriteString("caution")
-		net.SendOmit(GAMEMODE.ROUND.Killer)
+
+		local killer = GAMEMODE.ROUND.Killer
+		if IsValid(killer) and killer:IsPlayer() then
+			net.SendOmit(killer)
+		else
+			net.Broadcast()
+		end
 	end
 )
 

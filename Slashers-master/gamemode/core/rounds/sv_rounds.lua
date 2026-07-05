@@ -196,12 +196,13 @@ end
 -- ─────────────────────────────────────────────
 function GM.ROUND:CheckSetupComplete()
 	if not self.KillerReady or not self.SurvivorsReady then return end
+	if not self.Active then return end -- Abort if the round died during setup
 
 	print("[Setup-Pipeline] Both killer and survivors ready — firing PostStart.")
 	hook.Run("sls_round_PostStart")
 	net.Start("sls_round_PostStart")
 		net.WriteInt(self.Count, 16)
-		net.WriteInt(self.EndTime, 16)
+		net.WriteInt(self.EndTime or 0, 16)
 		net.WriteTable(self.Survivors)
 		net.WriteEntity(self.Killer)
 		net.WriteTable(GAMEMODE.CLASS:GetClassIDTable())
@@ -307,10 +308,10 @@ function GM:PlayerSpawn(ply)
 		ply.initialKill = true
 
 		net.Start("sls_round_SetupCamera")
-			net.WriteVector(GM.ROUND.CameraPos)
-			net.WriteAngle(GM.ROUND.CameraAng)
+			net.WriteVector(GM.ROUND.CameraPos or Vector(0, 0, 0))
+			net.WriteAngle(GM.ROUND.CameraAng or Angle(0, 0, 0))
 		net.Send(ply)
-		ply:SetPos(GM.ROUND.CameraPos)
+		ply:SetPos(GM.ROUND.CameraPos or Vector(0, 0, 0))
 
 		-- Send data
 		if GM.ROUND.Active then
@@ -424,7 +425,12 @@ local function InitPostEntity()
 
 	-- Get Cam pos
 	local camera = ents.FindByName("camera_view")[1]
-	GM.ROUND.CameraPos = camera:GetPos()
-	GM.ROUND.CameraAng = camera:GetAngles()
+	if IsValid(camera) then
+		GM.ROUND.CameraPos = camera:GetPos()
+		GM.ROUND.CameraAng = camera:GetAngles()
+	else
+		GM.ROUND.CameraPos = Vector(0, 0, 0)
+		GM.ROUND.CameraAng = Angle(0, 0, 0)
+	end
 end
 hook.Add("InitPostEntity", "sls_round_InitPostEntity", InitPostEntity)

@@ -20,7 +20,7 @@ local function getUseKey()
 			return ">"
 		end
 	else
-		return input.GetKeyName( cpt )
+		return string.lower(input.GetKeyName( cpt ) or "e")
 	end
 end
 
@@ -43,7 +43,7 @@ function DrawIndicator(ent)
 	local KeySize = draw.GetFontHeight( "KeyboardFont" )
 	-- local usekey = input.LookupKeyBinding( KEY_E )
   cam.Start2D()
-  draw.DrawText(name,"Bohemian typewriter STITLE",pos2d.x,pos2d.y,Color(255,0,0,255),TEXT_ALIGN_CENTER)
+  draw.DrawText(name,"Bohemian typewriter STITLE",pos2d.x,pos2d.y,Color(255,255,255,255),TEXT_ALIGN_CENTER)
 	draw.DrawText(usekey.."           ","KeyboardFont",pos2d.x  ,pos2d.y + TitleSize + 10,Color(255,255,255,255),TEXT_ALIGN_CENTER)
 	draw.DrawText(description,"Bohemian typewriter SA",pos2d.x + 5, pos2d.y + TitleSize + 10 ,Color(255,255,255,255),TEXT_ALIGN_CENTER)
   cam.End2D()

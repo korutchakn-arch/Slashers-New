@@ -10,26 +10,6 @@ ENT.RenderGroup = RENDERGROUP_BOTH
 ------------------------------------------------------------
 -- Local state for fusebox interaction progress HUD
 ------------------------------------------------------------
-local fuseboxProgress     = 0
-local fuseboxActiveEntity = NULL
-
-------------------------------------------------------------
--- Receive progress updates from server
--- Float:  0 = idle, 0–1 = in-progress, 2 = completed/destroyed
--- Entity: which fusebox this update belongs to
-------------------------------------------------------------
-net.Receive("sls_kability_fusebox_progress", function(len)
-    local progress = net.ReadFloat()
-    local ent      = net.ReadEntity()
-
-    if not IsValid(ent) then return end
-
-    if ent == fuseboxActiveEntity or progress == 0 then
-        fuseboxProgress     = progress
-        fuseboxActiveEntity = (progress == 0) and NULL or ent
-    end
-end)
-
 ------------------------------------------------------------
 -- ENT:Initialize
 ------------------------------------------------------------
@@ -52,12 +32,36 @@ function ENT:DrawTranslucent()
     if lp:Team() ~= TEAM_KILLER then return end
 
     local fuseEnt = self.Entity
-    if not IsValid(fuseEnt) then return end
-    if fuseEnt:GetNWBool("destroyed", false) then return end
+    if not IsValid(fuseEnt) or fuseEnt:GetNWBool("destroyed", false) then return end
 
     local dist = fuseEnt:GetPos():Distance(lp:GetPos())
-    if dist < 150 and lp:IsLineOfSightClear(fuseEnt) then
-        DrawIndicator(fuseEnt)
+
+    if dist < 300 then
+        -- Smooth alpha fade: full opacity ≤150u, fades to 0 at 300u
+        local alpha = 255
+        if dist > 150 then
+            alpha = 255 * (1 - ((dist - 150) / 150))
+        end
+
+        -- Center of the fusebox + float 12 units outward from the front face
+        local center = fuseEnt:LocalToWorld(fuseEnt:OBBCenter())
+        local pos = center + (fuseEnt:GetAngles():Forward() * 12)
+
+        -- Align drawing plane perfectly with the box's orientation
+        local drawAng = fuseEnt:GetAngles()
+
+        -- 1. Align text left-to-right along the wall
+        drawAng:RotateAroundAxis(drawAng:Up(), 90)
+
+        -- 2. Flip the drawing plane vertically so it faces outward (Normal = Out, Y-axis = Down)
+        drawAng:RotateAroundAxis(drawAng:Forward(), 90)
+
+        cam.Start3D2D(pos, drawAng, 0.1)
+            cam.IgnoreZ(true) -- Draw over geometry so text is never clipped by the fusebox model
+            draw.SimpleText("FUSE BOX", "Bohemian typewriter STITLE", 0, -30, Color(255, 255, 255, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            draw.SimpleText("[ E ] POWER CUT", "horrormid", 0, 15, Color(220, 220, 220, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            cam.IgnoreZ(false)
+        cam.End3D2D()
     end
 end
 
@@ -67,10 +71,15 @@ end
 ------------------------------------------------------------
 hook.Add("HUDPaint", "sls_fusebox_HUD", function()
     local lp = LocalPlayer()
+    -- EyeTrace: Jason must be looking at this entity to press E,
+    -- so GetNWFloat on the looked-at entity is sufficient for HUD display.
+    local tr       = lp:GetEyeTrace()
+    local ent      = tr.Entity
+    if not IsValid(ent) or ent:GetClass() ~= "sls_fusebox" then return end
     if lp:Team() ~= TEAM_KILLER then return end
-    if fuseboxProgress <= 0 or fuseboxProgress >= 2 then return end
 
-    local progress = fuseboxProgress
+    local progress = ent:GetNWFloat("progress", 0)
+    if progress <= 0 or progress >= 2 then return end
 
     local barW  = 400
     local barH  = 24
