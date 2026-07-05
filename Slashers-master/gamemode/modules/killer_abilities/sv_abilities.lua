@@ -145,8 +145,41 @@ end
 
 -- Separate hook entry to suppress footstep sounds for alpha-0 players
 function KA_jason_CDisableFootsteps(ply, pos, foot, sound, volume, filter)
-    if ply:GetColor().a == 0 then
-        return true
+	if ply:GetColor().a == 0 then
+		return true
+	end
+end
+
+------------------------------------------------------------
+-- JASON ABILITY — Power Cut / Fuse Box
+-- Hook: sls_round_PostStart, sls_round_End
+-- Spawns one fusebox at a random GM.MAP.Goal.Fusebox location.
+------------------------------------------------------------
+
+function KA_jason_PostStart()
+    -- Reset blackout state at round start
+    GAMEMODE:ResetBlackout()
+
+    if not GM.MAP.Goal or not GM.MAP.Goal.Fusebox then return end
+    if #GM.MAP.Goal.Fusebox == 0 then return end
+
+    local entry = GM.MAP.Goal.Fusebox[math.random(#GM.MAP.Goal.Fusebox)]
+    local fusebox = ents.Create("sls_fusebox")
+    if not IsValid(fusebox) then return end
+
+    fusebox:SetPos(entry.pos)
+    fusebox:SetAngles(entry.ang)
+    fusebox:Spawn()
+
+    -- Keep a reference on the round object so it can be cleaned up
+    GM.ROUND._fusebox = fusebox
+end
+
+function KA_jason_End()
+    -- Clean up the fusebox if it still exists
+    if IsValid(GM.ROUND._fusebox) then
+        GM.ROUND._fusebox:Remove()
+        GM.ROUND._fusebox = nil
     end
 end
 

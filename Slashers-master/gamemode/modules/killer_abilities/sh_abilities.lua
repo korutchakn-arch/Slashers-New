@@ -15,6 +15,7 @@ if SERVER then
     util.AddNetworkString("sls_ghostface_phone_reveal") -- Phone SWEP: broadcast furthest-survivor position to Ghostface
     -- Jason
     util.AddNetworkString("sls_kability_AddStep")
+    util.AddNetworkString("sls_kability_fusebox_progress")
     -- Myers
     util.AddNetworkString("sls_kability_update_myersability")
     util.AddNetworkString("sls_kability_Wallhack")
@@ -61,8 +62,9 @@ GM.KillerAbilities["jason"] = {
     desc = "See survivor footsteps on the ground.",
     hooks = {
         -- Server
-        {name = "PlayerFootstep",     tag = "sls_ka_jason_PlayerFootstep"},
-        {name = "PlayerFootstep",     tag = "sls_ka_jason_CDisableFootsteps"}, -- suppress sound for invisible players
+        {name = "PlayerFootstep",      tag = "sls_ka_jason_PlayerFootstep"},
+        {name = "PlayerFootstep",      tag = "sls_ka_jason_CDisableFootsteps"}, -- suppress sound for invisible players
+        {name = "sls_round_PostStart", tag = "sls_ka_jason_PostStart"},         -- spawn fusebox
         -- Client
         {name = "PostDrawTranslucentRenderables", tag = "sls_ka_jason_PostDrawTranslucentRenderables"},
         {name = "sls_round_PreStart", tag = "sls_ka_jason_PreStart"},
