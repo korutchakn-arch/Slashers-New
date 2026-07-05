@@ -160,10 +160,9 @@ function KA_jason_PostStart()
     -- Reset blackout state at round start
     GAMEMODE:ResetBlackout()
 
-    if not GM.MAP.Goal or not GM.MAP.Goal.Fusebox then return end
-    if #GM.MAP.Goal.Fusebox == 0 then return end
+    if not GM.MAP.Fusebox or #GM.MAP.Fusebox == 0 then return end
 
-    local entry = GM.MAP.Goal.Fusebox[math.random(#GM.MAP.Goal.Fusebox)]
+    local entry = GM.MAP.Fusebox[math.random(#GM.MAP.Fusebox)]
     local fusebox = ents.Create("sls_fusebox")
     if not IsValid(fusebox) then return end
 
