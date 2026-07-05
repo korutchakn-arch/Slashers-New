@@ -224,8 +224,6 @@ function SWEP:PrimaryAttack()
 	if not SERVER then return end
 
 	local killer = self.Owner
-
-	-- Team gate: survivors holding a dropped phone cannot use the ability.
 	if killer:Team() ~= TEAM_KILLER then return end
 
 	-- ── 1. Cooldown gate ──────────────────────────────────────────────────────
@@ -276,6 +274,12 @@ function SWEP:PrimaryAttack()
 	-- Strip any previous leftover copy to avoid stacking.
 	furthestSurv:StripWeapon("weapon_ghostface_phone")
 	furthestSurv:Give("weapon_ghostface_phone")
+	
+	local phoneWep = furthestSurv:GetWeapon("weapon_ghostface_phone")
+	if IsValid(phoneWep) then
+		furthestSurv:SetActiveWeapon(phoneWep)
+	end
+	
 	furthestSurv:EmitSound(PHONE_RINGING_SOUND, 75, 100, 1.0)
 	furthestSurv:ChatPrint("Your phone is ringing... Pick up!")
 
@@ -284,6 +288,7 @@ function SWEP:PrimaryAttack()
 	timer.Simple(PHONE_WEAPON_DURATION, function()
 		if IsValid(survRef) then
 			survRef:StripWeapon("weapon_ghostface_phone")
+			survRef:StopSound(PHONE_RINGING_SOUND)
 		end
 	end)
 
@@ -314,6 +319,10 @@ function SWEP:PrimarySlash()
 end
 
 function SWEP:Holster()
+	if IsValid(self.Owner) and self.Owner:Team() ~= TEAM_KILLER then
+		return false -- Survivors cannot switch away from the phone!
+	end
+
 	if SERVER and IsValid(self.Owner) then
 		self.Owner:StopSound(PHONE_RINGING_SOUND)
 	end
