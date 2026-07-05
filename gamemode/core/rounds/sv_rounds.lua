@@ -331,6 +331,13 @@ function GM:PlayerSpawn(ply)
 				net.WriteBool(GM.ROUND.Escape)
 				net.WriteTable(GM.CLASS:GetClassIDTable())
 			net.Send(ply)
+
+			-- Sync the killer's chosen character to the late-joining player
+			if IsValid(GM.ROUND.Killer) and GM.ROUND.Killer.ChosenCharacter then
+				net.Start("sls_killer_sync_character")
+					net.WriteString(GM.ROUND.Killer.ChosenCharacter)
+				net.Send(ply)
+			end
 		end
 	end
 end

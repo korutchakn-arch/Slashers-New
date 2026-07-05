@@ -49,8 +49,10 @@ local function HUDDrawScoreBoard()
 		-- ICON
 		local drawIcon = false
 		if v:Team() == TEAM_KILLER then
-			surface.SetMaterial(GM.MAP.Killer.Icon)
-			drawIcon = true
+			if GM.MAP.Killer and GM.MAP.Killer.Icon then
+				surface.SetMaterial(GM.MAP.Killer.Icon)
+				drawIcon = true
+			end
 		elseif v:Team() == TEAM_SURVIVORS && v.ClassID != 0 && GM.CLASS.Survivors[v.ClassID] then
 			surface.SetMaterial(GM.CLASS.Survivors[v.ClassID].icon)
 			drawIcon = true
