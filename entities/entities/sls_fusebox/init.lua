@@ -91,6 +91,9 @@ local function TriggerBlackout(activator)
         net.WriteTable({"round_notif_blackout"})
         net.WriteString("warning")
     net.Broadcast()
+
+    -- 7. Signal all listeners that the blackout has been triggered.
+    hook.Run("sls_blackout_triggered")
 end
 
 ------------------------------------------------------------

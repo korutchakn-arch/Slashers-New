@@ -1,7 +1,3 @@
-if SERVER then
-	util.AddNetworkString("sls_flashlight")
-end
-
 SWEP.Base = "tfa_nmrimelee_base"
 SWEP.Category = "TFA NMRIH"
 SWEP.Spawnable = true
@@ -9,25 +5,24 @@ SWEP.AdminSpawnable = true
 
 SWEP.PrintName = "Maglite"
 
-SWEP.ViewModel			= "models/weapons/tfa_nmrih/v_item_maglite.mdl" --Viewmodel path
+SWEP.ViewModel			= "models/weapons/tfa_nmrih/v_item_maglite.mdl"
 SWEP.ViewModelFOV = 50
-//SWEP.RenderGroup = RENDERGROUP_BOTH
 
-SWEP.WorldModel			= "models/weapons/tfa_nmrih/w_item_maglite.mdl" --Viewmodel path
+SWEP.WorldModel			= "models/weapons/tfa_nmrih/w_item_maglite.mdl"
 SWEP.HoldType = "slam"
 SWEP.DefaultHoldType = "slam"
-SWEP.Offset = { --Procedural world model animation, defaulted for CS:S purposes.
-        Pos = {
-        Up = -0.5,
-        Right = 2,
-        Forward = 5.5,
-        },
-        Ang = {
-        Up = -1,
-        Right = 5,
-        Forward = 178
-        },
-		Scale = 1.2
+SWEP.Offset = {
+	Pos = {
+		Up = -0.5,
+		Right = 2,
+		Forward = 5.5,
+	},
+	Ang = {
+		Up = -1,
+		Right = 5,
+		Forward = 178
+	},
+	Scale = 1.2
 }
 
 SWEP.Primary.Sound = Sound("Weapon_Melee.CrowbarLight")
@@ -49,9 +44,9 @@ SWEP.Primary.Window = 0.2
 SWEP.Primary.Automatic = false
 
 SWEP.Secondary.Blunt = true
-SWEP.Secondary.RPM = 60 -- Delay = 60/RPM, this is only AFTER you release your heavy attack
+SWEP.Secondary.RPM = 60
 SWEP.Secondary.Damage = 60
-SWEP.Secondary.Reach = 40	
+SWEP.Secondary.Reach = 40
 SWEP.Secondary.SoundDelay = 0.0
 SWEP.Secondary.Delay = 0.2
 SWEP.Secondary.Automatic = false
@@ -63,29 +58,20 @@ SWEP.Secondary.BashLength = 40
 SWEP.MoveSpeed = 1
 SWEP.AllowViewAttachment = false
 
-local matLight = Material( "sprites/light_ignorez" )
-
+-- ─────────────────────────────────────────────────────────────────────────────
+-- SERVER SIDE
+-- PrimaryAttack only: toggles a networked boolean. No light entity management.
+-- ─────────────────────────────────────────────────────────────────────────────
 function SWEP:PrimaryAttack()
-	if CLIENT then return end
-	if !IsValid(self) || !IsValid(self.Owner) || !self.Owner:GetActiveWeapon() || self.Owner:GetActiveWeapon() != self then return end
+	if not IsFirstTimePredicted() then return end
+	if !IsValid(self) || !IsValid(self.Owner) then return end
 
 	self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
-	self.Owner:EmitSound("slashers/effects/flashlight_toggle.wav", 75, 100, 0.6)
-
-	if !IsValid(self.projectedLight) then
-		self:BuildLight()
-		return
+	
+	if SERVER then
+		self.Owner:EmitSound("slashers/effects/flashlight_toggle.wav", 75, 100, 0.6)
+		self:SetNWBool("LightActive", not self:GetNWBool("LightActive"))
 	end
-
-	self.Active = !self.Active
-	if self.Active then
-		self.projectedLight:Fire("TurnOn")
-	else
-		self.projectedLight:Fire("TurnOff")
-	end
-
-	net.Start("sls_flashlight")
-	net.Send(self.Owner)
 end
 
 function SWEP:SecondaryAttack()
@@ -93,150 +79,105 @@ function SWEP:SecondaryAttack()
 end
 
 function SWEP:Reload()
-
 end
 
 function SWEP:PrimarySlash()
-
 end
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- LIFECYCLE CLEANUP (SERVER)
+-- Nothing to clean up — client manages its own ProjectedTexture.
+-- We still null the NWBool to be safe and clean.
+-- ─────────────────────────────────────────────────────────────────────────────
 function SWEP:Holster()
-	SafeRemoveEntity(self.projectedLight)
-	if IsValid(self.Owner) then
-		self.Owner:SetNWEntity("FL_Flashlight", nil)
+	if SERVER then
+		print("[Maglite-Debug] Holster triggered — clearing LightActive NWBool")
 	end
-	self.Active = false
+	self:SetNWBool("LightActive", false)
 	return true
 end
 
 function SWEP:OnRemove()
-	SafeRemoveEntity(self.projectedLight)
-	if IsValid(self.Owner) then
-		self.Owner:SetNWEntity("FL_Flashlight", nil)
+	if SERVER then
+		print("[Maglite-Debug] OnRemove triggered — clearing LightActive NWBool")
 	end
+	self:SetNWBool("LightActive", false)
 end
 
 function SWEP:OnDrop()
-	SafeRemoveEntity(self.projectedLight)
-	if IsValid(self.Owner) then
-		self.Owner:SetNWEntity("FL_Flashlight", nil)
+	if SERVER then
+		print("[Maglite-Debug] OnDrop triggered — clearing LightActive NWBool")
 	end
-	self.Active = false
+	self:SetNWBool("LightActive", false)
 end
 
-function SWEP:BuildLight()
-	if CLIENT then return end
-	if !IsValid(self) || !IsValid(self.Owner) || !self.Owner:GetActiveWeapon() || self.Owner:GetActiveWeapon() != self then return end
+-- ─────────────────────────────────────────────────────────────────────────────
+-- CLIENT SIDE
+-- ProjectedTexture is a pure client object. It survives render.RedownloadAllLightmaps
+-- because it is continuously rebuilt each frame by the client itself — no server
+-- entity is involved.
+-- ─────────────────────────────────────────────────────────────────────────────
+if CLIENT then
 
-	self.projectedLight = ents.Create( "env_projectedtexture" )
-	self.projectedLight:SetLagCompensated(true)
-	self.projectedLight:SetPos( self.Owner:EyePos() )
-	self.projectedLight:SetAngles( self.Owner:EyeAngles() )
-	self.projectedLight:SetKeyValue( "enableshadows", 1 )
-	self.projectedLight:SetKeyValue( "farz", 1477 )
-	self.projectedLight:SetKeyValue( "nearz", 1 )
-	self.projectedLight:SetKeyValue( "lightfov", 60 )
-	self.projectedLight:SetKeyValue( "lightcolor", "150 255 255 255" )
-	self.projectedLight:Spawn()
-	self.projectedLight:Input( "SpotlightTexture", NULL, NULL, "effects/flashlight001" )
+	-- Forward-declare so Think can reference it
+	local matLight = Material("sprites/light_ignorez")
 
-	self.Owner:SetNWEntity("FL_Flashlight", self.projectedLight)
+	-- Draw a sprite at the flashlight origin so the player can see it in-world
+	-- even when looking away from the beam direction.
+	local function DrawFlashlightSprite(pos)
+		if not pos then return end
+		render.SetMaterial(matLight)
+		local viewNormal = (EyePos() - pos)
+		local dist = viewNormal:Length()
+		if dist < 4 then return end
+		viewNormal:Normalize()
+		local dot = viewNormal:Dot(EyeAngles():Forward())
+		if dot < 0 then return end
+		local size = math.Clamp(dist * dot * 0.4, 8, 128)
+		local alpha = math.Clamp((800 - dist) * dot, 0, 180)
+		render.DrawSprite(pos, size, size, Color(150, 255, 255, alpha))
+	end
 
-	self.Active = true
-end
-
-function SWEP:Think()
-	if SERVER && IsValid(self.projectedLight) then
-		if IsValid(self.Owner) then
-			local att = self.Owner:LookupAttachment("anim_attachment_RH")
-			if att > 0 then
-				local attTbl = self.Owner:GetAttachment(att)
-				if attTbl then
-					-- Point the light in the direction the player is aiming, but position it at the hand
-					self.projectedLight:SetPos(attTbl.Pos + self.Owner:GetAimVector() * 15)
-					self.projectedLight:SetAngles(self.Owner:EyeAngles())
-					return
-				end
+	function SWEP:Think()
+		-- ─── Cleanup ──────────────────────────────────────────────────────────────
+		-- IsValid(self) covers weapon holster and removal.
+		-- self:GetNWBool("LightActive") being false covers server-side drop/holster events.
+		if not IsValid(self) then
+			if self.ClientLight then
+				self.ClientLight:Remove()
+				self.ClientLight = nil
 			end
-			
-			-- Fallback to eyes if attachment is missing
-			self.projectedLight:SetPos( self.Owner:EyePos() + self.Owner:GetAimVector() * 15 );
-			self.projectedLight:SetAngles( self.Owner:EyeAngles() );
-		else
-			SafeRemoveEntity(self.projectedLight)
+			return
 		end
-	end
-end
 
-local function UpdateFlashlight()
-	local pjs = LocalPlayer():GetNWEntity("FL_Flashlight")
-	if IsValid( pjs ) then
-		if IsValid(LocalPlayer():GetActiveWeapon()) and LocalPlayer():GetActiveWeapon():GetClass() == "weapon_flashlight" then
-			local bid = LocalPlayer():GetViewModel():LookupBone( "Maglite" )
-			local bp, ba = LocalPlayer():GetViewModel():GetBonePosition( bid )
-			ba:RotateAroundAxis(ba:Up(), -90)
-			pjs:SetPos( bp +ba:Forward() * -3.5 );
-			pjs:SetAngles( ba );
-			pjs:SetParent(LocalPlayer():GetViewModel(), LocalPlayer():GetViewModel():LookupAttachment("light"))
+		if not self:GetNWBool("LightActive", false) then
+			if self.ClientLight then
+				print("[Maglite-Debug] Think — removing ProjectedTexture (light deactivated)")
+				self.ClientLight:Remove()
+				self.ClientLight = nil
+			end
+			return
 		end
-	end
-end
-net.Receive("sls_flashlight", UpdateFlashlight)
 
-function SWEP:CalcViewModelView( ent, oldPos, oldAng, pos, ang )
-	if SERVER then return end
-	if LocalPlayer():Team() == TEAM_SURVIVORS then
-		local pjs = LocalPlayer():GetNWEntity( 'FL_Flashlight' )
-		if IsValid( pjs ) then
-			local bid = LocalPlayer():GetViewModel():LookupAttachment("light")
-			local bp = LocalPlayer():GetViewModel():GetAttachment(bid)
-			local ang = bp.Ang
-			local pos = bp.Pos
-			--ba:RotateAroundAxis(ba:Up(), -90)
-			pjs:SetPos( pos +ang:Forward() * -5 );
-			pjs:SetAngles( ang );
+		-- ─── Create or update ───────────────────────────────────────────────────────
+		if not self.ClientLight then
+			print("[Maglite-Debug] Think — creating ProjectedTexture")
+			self.ClientLight = ProjectedTexture()
+			self.ClientLight:SetTexture("effects/flashlight001")
+			self.ClientLight:SetFarZ(1477)
+			self.ClientLight:SetFOV(60)
+			self.ClientLight:SetColor(Color(150, 255, 255, 255))
+			self.ClientLight:SetEnableShadows(true)
 		end
+
+		local pos = EyePos()
+		local ang = EyeAngles()
+
+		self.ClientLight:SetPos(pos)
+		self.ClientLight:SetAngles(ang)
+		self.ClientLight:Update()
+
+		DrawFlashlightSprite(pos + ang:Forward() * 2)
 	end
+
 end
-
-//function SWEP:DrawWorldModel()
-	//if SERVER then return end
-	//self:DrawModel()
-	/*local LightNrm = self.Owner:GetViewModel():GetAngles():Forward()
-	local ViewNormal = self.Owner:GetViewModel():GetPos() - EyePos()
-	local Distance = ViewNormal:Length()
-	ViewNormal:Normalize()
-	local ViewDot = ViewNormal:Dot( LightNrm * -1 )
-	local LightPos = self.Owner:GetViewModel():GetPos() + LightNrm * 5*/
-
-	//if ( ViewDot >= 0 ) then
-
-		//render.SetMaterial( matLight )
-		//local Visibile = util.PixelVisible( LightPos, 16, self.PixVis )
-
-		//if ( !Visibile ) then return end
-
-		//local Size = math.Clamp( Distance * Visibile * ViewDot * 2, 64, 512 )
-
-		/*Distance = math.Clamp( Distance, 32, 800 )
-		local Alpha = math.Clamp( ( 1000 - Distance ) * Visibile * ViewDot, 0, 100 )
-		local Col = Color(150, 255, 255, 255)
-		Col.a = Alpha
-
-		render.DrawSprite( LightPos, Size, Size, Col, Visibile * ViewDot )
-		render.DrawSprite( LightPos, Size * 0.4, Size * 0.4, Color( 150, 255, 255, Alpha ), Visibile * ViewDot )*/
-
-		//render.DrawSprite(self.Owner:GetAttachment(3).Pos, 25, 25, Color(150, 255, 255))
-
-	//end
-//end
-
--- if SERVER then
--- 	local function EntityTakeDamage(target, dmg)
--- 		if !target:IsPlayer() || !dmg:GetAttacker() || !dmg:GetAttacker():GetActiveWeapon() ||
--- 			dmg:GetAttacker():GetActiveWeapon():GetClass() != "weapon_flashlight" then return end
--- 		return true
--- 		if target:Team() == TEAM_SURVIVORS then return true end
--- 	end
--- 	hook.Add("EntityTakeDamage", "sls_flashlight_EntityTakeDamage", EntityTakeDamage)
--- end
