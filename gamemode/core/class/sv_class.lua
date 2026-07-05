@@ -15,7 +15,6 @@ function playermeta:SetSurvClass(class)
 
 	self:StripWeapons()
 	self:SetTeam(TEAM_SURVIVORS)
-	self:EquipSuit() -- Unlock engine flashlight capabilities
 	self:AllowFlashlight(false)
 	self:SetNoCollideWithTeammates(true)
 	if GM.CLASS.Survivors[class].model then

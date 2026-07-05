@@ -25,16 +25,7 @@ end
 
 function GM:Initialize()
 	timer.Simple(0,function()engine.LightStyle(0,GAME_LUM)end)
-	game.ConsoleCommand("mp_flashlight 1\n")
 end
-
--- Block the engine's native 'F' key flashlight for all players.
--- The Maglite SWEP handles flashlight toggling independently via
--- AllowFlashlight(true) (setter) in PrimaryAttack, bypassing this hook.
-function GM:PlayerSwitchFlashlight(ply, enabled)
-	return false
-end
-
 
 -- Prevent self respawn
 function GM:PlayerDeathThink()
