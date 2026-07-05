@@ -333,3 +333,71 @@ local function KA_intruder_AddHalos()
     halo.Add(intruder_trapsEntity, Color(255, 0, 0), 5, 5, 2)
 end
 hook.Add("PreDrawHalos", "sls_ka_intruder_AddHalos", KA_intruder_AddHalos)
+
+-----------------------------------------------------------
+-- GHOSTFACE (Phone) — Furthest survivor position reveal
+-- Net: sls_ghostface_phone_reveal
+-- HUD: Skull icon + survivor name drawn at world-to-screen pos
+-- Cleared on: sls_round_PreStart / sls_round_End
+-----------------------------------------------------------
+
+local ghostface_phoneRevealPos  = nil  -- Vector: head-level world position of the target
+local ghostface_phoneRevealName = ""   -- Nick of the called survivor
+local ghostface_phoneRevealEnd  = 0    -- CurTime() when the marker expires
+
+-- Duration (seconds) the reveal marker stays on Ghostface's HUD after the call
+local PHONE_REVEAL_HUD_DURATION = 8
+
+local ICON_PHONE_REVEAL = Material("icons/icon_target.png") -- reuse target icon (same as Myers)
+
+net.Receive("sls_ghostface_phone_reveal", function()
+    ghostface_phoneRevealPos  = net.ReadVector()
+    ghostface_phoneRevealName = net.ReadString()
+    ghostface_phoneRevealEnd  = CurTime() + PHONE_REVEAL_HUD_DURATION
+end)
+
+--[[
+    KA_ghostface_phone_HUDPaintBackground
+    Draws a skull/target icon + survivor name at the screen position
+    corresponding to the revealed survivor's head.
+    Only visible to Ghostface (TEAM_KILLER) during the reveal window.
+    Mirrors Myers' KA_myers_HUDPaintBackground exactly, with an extra
+    name label for better feedback.
+]]
+local function KA_ghostface_phone_HUDPaintBackground()
+    if LocalPlayer():Team() ~= TEAM_KILLER then return end
+    if not ghostface_phoneRevealPos then return end
+    if CurTime() > ghostface_phoneRevealEnd then
+        ghostface_phoneRevealPos  = nil
+        ghostface_phoneRevealName = ""
+        return
+    end
+
+    local screenPos = ghostface_phoneRevealPos:ToScreen()
+    if not screenPos.visible then return end -- skip when behind camera
+
+    local iconSize = 64
+
+    -- Draw target icon centred on the survivor's world position
+    surface.SetDrawColor(Color(255, 255, 255, 255))
+    surface.SetMaterial(ICON_PHONE_REVEAL)
+    surface.DrawTexturedRect(screenPos.x - iconSize * 0.5, screenPos.y - iconSize * 0.5, iconSize, iconSize)
+
+
+    -- Draw a small pulsing corner indicator so Ghostface knows the ability fired
+    local pulseAlpha = math.abs(math.sin(CurTime() * 3)) * 200 + 55
+    surface.SetDrawColor(Color(255, 60, 60, pulseAlpha))
+    surface.SetMaterial(ICON_PHONE_REVEAL)
+    surface.DrawTexturedRect(ScrW() - 110, 10, 96, 96)
+end
+hook.Add("HUDPaintBackground", "sls_ka_ghostface_phone_HUDPaintBackground", KA_ghostface_phone_HUDPaintBackground)
+
+-- Clear state at round boundaries (prevents stale markers across rounds)
+local function KA_ghostface_phone_ResetReveal()
+    ghostface_phoneRevealPos  = nil
+    ghostface_phoneRevealName = ""
+    ghostface_phoneRevealEnd  = 0
+end
+hook.Add("sls_round_PreStart", "sls_ka_ghostface_phone_PreStart", KA_ghostface_phone_ResetReveal)
+hook.Add("sls_round_End",      "sls_ka_ghostface_phone_End",      KA_ghostface_phone_ResetReveal)
+
