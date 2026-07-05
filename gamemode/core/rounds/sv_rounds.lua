@@ -90,7 +90,10 @@ function GM.ROUND:Start(forceKiller)
 	local spawnpoints = ents.FindByClass("info_player_counterterrorist")
 	for _, v in ipairs(GM.ROUND.Survivors) do
 		v:Spawn()
-		v:SetPos(table.Random(spawnpoints):GetPos())
+		local sp = table.remove(spawnpoints, math.random(#spawnpoints))
+		if sp then
+			v:SetPos(sp:GetPos())
+		end
 		-- Freeze survivors immediately on spawn so they cannot run around the map
 		-- during the killer's character/weapon selection phase.
 		-- MakePopup() in the Derma UI allows UI interaction while the entity is frozen,
@@ -113,6 +116,9 @@ function GM.ROUND:Start(forceKiller)
 	end
 
 	game.CleanUpMap()
+	if GAMEMODE:IsBlackoutActive() then
+		GAMEMODE:ResetBlackout()
+	end
 
 	GM.ROUND.Active = true
 	GM.ROUND.Count = GM.ROUND.Count + 1

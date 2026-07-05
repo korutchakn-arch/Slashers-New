@@ -157,9 +157,6 @@ end
 ------------------------------------------------------------
 
 function KA_jason_sls_round_PostStart()
-    -- Reset blackout state at round start
-    GAMEMODE:ResetBlackout()
-
     if not GM.MAP.Fusebox or #GM.MAP.Fusebox == 0 then return end
 
     local entry = GM.MAP.Fusebox[math.random(#GM.MAP.Fusebox)]
