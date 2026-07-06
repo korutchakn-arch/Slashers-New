@@ -8,6 +8,8 @@ util.AddNetworkString("sls_killer_showintro")
 util.AddNetworkString("sls_killer_intro_finished")
 util.AddNetworkString("sls_killer_sync_character")
 
+local GM = GM or GAMEMODE
+
 -- Reset state at the start of each round
 hook.Add("sls_round_PreStart", "sls_KillerSetup_Reset", function()
 	for _, ply in ipairs(player.GetAll()) do
@@ -41,8 +43,8 @@ local function StartWeaponSelectWatchdog(ply)
 		-- Signal killer is ready; PostStart only fires once survivors are also done.
 		-- sls_killer_showintro is sent from GM.ROUND:CheckSetupComplete() in sv_rounds.lua
 		-- so the cinematic is always synchronised with PostStart.
-		GAMEMODE.ROUND.KillerReady = true
-		GAMEMODE.ROUND:CheckSetupComplete()
+		GM.ROUND.KillerReady = true
+		GM.ROUND:CheckSetupComplete()
 	end)
 end
 
@@ -148,8 +150,8 @@ net.Receive("sls_killer_selectweapon", function(len, ply)
 	-- their 10-second class-select window before PostStart (and the cinematic) fires.
 	-- sls_killer_showintro is also sent from CheckSetupComplete so the intro is
 	-- guaranteed to reach the killer in the same tick as PostStart.
-	GAMEMODE.ROUND.KillerReady = true
-	GAMEMODE.ROUND:CheckSetupComplete()
+	GM.ROUND.KillerReady = true
+	GM.ROUND:CheckSetupComplete()
 end)
 
 -- ─────────────────────────────────────────────
@@ -161,8 +163,8 @@ end)
 -- ─────────────────────────────────────────────
 hook.Add("sls_round_PostStart", "sls_Setup_FreezeSurvivors", function()
 	local gm = GAMEMODE
-	if not gm or not gm.ROUND or not gm.ROUND.Survivors then
-		print("[Setup-Pipeline] GAMEMODE.ROUND.Survivors not ready — skipping survivor freeze.")
+	if not GM.ROUND or not GM.ROUND.Survivors then
+		print("[Setup-Pipeline] GM.ROUND.Survivors not ready — skipping survivor freeze.")
 		return
 	end
 
@@ -175,8 +177,8 @@ hook.Add("sls_round_PostStart", "sls_Setup_FreezeSurvivors", function()
 	-- Unfreeze after the cinematic window expires.
 	local freezeDur = (gm.CONFIG and gm.CONFIG["round_freeze_start"]) or 10
 	timer.Simple(freezeDur, function()
-		if not GAMEMODE.ROUND or not GAMEMODE.ROUND.Survivors then return end
-		for _, v in ipairs(GAMEMODE.ROUND.Survivors) do
+		if not GM.ROUND or not GM.ROUND.Survivors then return end
+		for _, v in ipairs(GM.ROUND.Survivors) do
 			if IsValid(v) then v:Freeze(false) end
 		end
 		print("[Setup-Pipeline] Survivors unfrozen after cinematic.")

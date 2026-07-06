@@ -16,6 +16,8 @@ util.AddNetworkString("sls_surv_sync_taken_classes")
 util.AddNetworkString("sls_surv_classsetup_timeout")
 util.AddNetworkString("sls_surv_class_denied")
 
+local GM = GM or GAMEMODE
+
 -- ─────────────────────────────────────────────
 -- Module-level tracking: which class keys are taken this round.
 -- Reset on every sls_round_PreStart.
@@ -143,9 +145,8 @@ StartSurvClassWatchdog = function(ply)
         -- Check whether every survivor is now accounted for.
         -- If so, signal the synchronisation barrier so PostStart can fire.
         local allDone = true
-        local gm2 = GAMEMODE
-        if gm2 and gm2.ROUND and gm2.ROUND.Survivors then
-            for _, s in ipairs(gm2.ROUND.Survivors) do
+        if GM.ROUND and GM.ROUND.Survivors then
+            for _, s in ipairs(GM.ROUND.Survivors) do
                 if IsValid(s) and not s.HasChosenSurvClass then
                     allDone = false
                     break
@@ -154,9 +155,9 @@ StartSurvClassWatchdog = function(ply)
         end
         if allDone then
             hook.Run("sls_surv_ClassSetupComplete")
-            if gm2 and gm2.ROUND then
-                gm2.ROUND.SurvivorsReady = true
-                gm2.ROUND:CheckSetupComplete()
+            if GM.ROUND then
+                GM.ROUND.SurvivorsReady = true
+                GM.ROUND:CheckSetupComplete()
             end
         end
     end)
@@ -226,9 +227,8 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     -- Check whether every survivor has now chosen. If so, trigger the
     -- synchronisation barrier so PostStart can fire once the killer is ready too.
     local allDone = true
-    local gm2 = GAMEMODE
-    if gm2 and gm2.ROUND and gm2.ROUND.Survivors then
-        for _, s in ipairs(gm2.ROUND.Survivors) do
+    if GM.ROUND and GM.ROUND.Survivors then
+        for _, s in ipairs(GM.ROUND.Survivors) do
             if IsValid(s) and not s.HasChosenSurvClass then
                 allDone = false
                 break
@@ -237,9 +237,9 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     end
     if allDone then
         hook.Run("sls_surv_ClassSetupComplete")
-        if gm2 and gm2.ROUND then
-            gm2.ROUND.SurvivorsReady = true
-            gm2.ROUND:CheckSetupComplete()
+        if GM.ROUND then
+            GM.ROUND.SurvivorsReady = true
+            GM.ROUND:CheckSetupComplete()
         end
     end
 end)
