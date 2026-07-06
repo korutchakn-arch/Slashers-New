@@ -21,12 +21,13 @@ GM.KillerCharacters = {
 		icon  = "icons/icon_jason.png"
 	},
 	["myers"] = {
-		name  = "Michael Myers",
-		model = "models/player/dewobedil/mike_myers/default_p.mdl",
-		walk  = 200,
-		run   = 200,
-		desc  = "Slow but deadly. Focus on one survivor to stalk them.",
-		icon  = "icons/icon_myers.png"
+		name          = "Michael Myers",
+		model         = "models/player/dewobedil/mike_myers/default_p.mdl",
+		walk          = 200,
+		run           = 200,
+		desc          = "Slow but deadly. Focus on one survivor to stalk them.",
+		icon          = "icons/icon_myers.png",
+		extra_weapons = {"sls_blink"}
 	},
 	["proxy"] = {
 		name  = "The Proxy",

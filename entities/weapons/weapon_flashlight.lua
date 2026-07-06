@@ -115,69 +115,85 @@ end
 -- CLIENT SIDE
 -- ProjectedTexture is a pure client object. It survives render.RedownloadAllLightmaps
 -- because it is continuously rebuilt each frame by the client itself — no server
--- entity is involved.
+-- entity is involved. We use a GLOBAL Think hook (not SWEP:Think) so that
+-- third-person observers of a player holding the Maglite can also see the beam.
 -- ─────────────────────────────────────────────────────────────────────────────
 if CLIENT then
 
-	-- Forward-declare so Think can reference it
-	local matLight = Material("sprites/light_ignorez")
+	local Flashlights = {}
 
-	-- Draw a sprite at the flashlight origin so the player can see it in-world
-	-- even when looking away from the beam direction.
-	local function DrawFlashlightSprite(pos)
-		if not pos then return end
-		render.SetMaterial(matLight)
-		local viewNormal = (EyePos() - pos)
-		local dist = viewNormal:Length()
-		if dist < 4 then return end
-		viewNormal:Normalize()
-		local dot = viewNormal:Dot(EyeAngles():Forward())
-		if dot < 0 then return end
-		local size = math.Clamp(dist * dot * 0.4, 8, 128)
-		local alpha = math.Clamp((800 - dist) * dot, 0, 180)
-		render.DrawSprite(pos, size, size, Color(150, 255, 255, alpha))
-	end
+	----------------------------------------------------------------------
+	-- Global Think hook: manages ProjectedTexture for ALL players.
+	-- SWEP:Think() is intentionally left empty.
+	----------------------------------------------------------------------
+	hook.Add("Think", "sls_flashlight_global_render", function()
+		for _, ply in ipairs(player.GetAll()) do
+			local wep = ply:GetActiveWeapon()
+			local isMaglite = IsValid(wep) and wep:GetClass() == "weapon_flashlight"
+			local active = isMaglite and wep:GetNWBool("LightActive", false)
 
-	function SWEP:Think()
-		-- ─── Cleanup ──────────────────────────────────────────────────────────────
-		-- IsValid(self) covers weapon holster and removal.
-		-- self:GetNWBool("LightActive") being false covers server-side drop/holster events.
-		if not IsValid(self) then
-			if self.ClientLight then
-				self.ClientLight:Remove()
-				self.ClientLight = nil
+			if active then
+				local isLocal = ply == LocalPlayer()
+				local inFirstPerson = isLocal and not ply:ShouldDrawLocalPlayer()
+
+				local pos, ang
+
+				if inFirstPerson then
+					-- First-person: attach to the viewmodel's "light" attachment so the
+					-- beam originates from the gun barrel, not the camera.
+					local vm = ply:GetViewModel()
+					local attID = vm:LookupAttachment("light")
+					local att = vm:GetAttachment(attID)
+					if att then
+						pos = att.Pos
+						ang = att.Angles
+					else
+						pos = EyePos()
+						ang = EyeAngles()
+					end
+				else
+					-- Third-person: emit from the hand attachment, pushed slightly forward.
+					local att = ply:GetAttachment(ply:LookupAttachment("anim_attachment_RH"))
+					if att then
+						pos = att.Pos + ply:GetAimVector() * 15
+					else
+						pos = ply:EyePos() + ply:GetAimVector() * 15
+					end
+					ang = ply:EyeAngles()
+				end
+
+				if not IsValid(Flashlights[ply]) then
+					print("[Maglite-Debug] GlobalThink — creating ProjectedTexture for " .. ply:Nick())
+					Flashlights[ply] = ProjectedTexture()
+					Flashlights[ply]:SetTexture("effects/flashlight001")
+					Flashlights[ply]:SetFarZ(1477)
+					Flashlights[ply]:SetFOV(60)
+					Flashlights[ply]:SetColor(Color(150, 255, 255, 255))
+					Flashlights[ply]:SetEnableShadows(true)
+				end
+
+				Flashlights[ply]:SetPos(pos)
+				Flashlights[ply]:SetAngles(ang)
+				Flashlights[ply]:Update()
+			else
+				if IsValid(Flashlights[ply]) then
+					print("[Maglite-Debug] GlobalThink — removing ProjectedTexture for " .. ply:Nick())
+					Flashlights[ply]:Remove()
+					Flashlights[ply] = nil
+				end
 			end
-			return
 		end
+	end)
 
-		if not self:GetNWBool("LightActive", false) then
-			if self.ClientLight then
-				print("[Maglite-Debug] Think — removing ProjectedTexture (light deactivated)")
-				self.ClientLight:Remove()
-				self.ClientLight = nil
-			end
-			return
+	----------------------------------------------------------------------
+	-- Garbage collection: clean up if a player disconnects with an active light.
+	----------------------------------------------------------------------
+	hook.Add("EntityRemoved", "sls_flashlight_cleanup", function(ent)
+		if not ent:IsPlayer() then return end
+		if IsValid(Flashlights[ent]) then
+			Flashlights[ent]:Remove()
+			Flashlights[ent] = nil
 		end
-
-		-- ─── Create or update ───────────────────────────────────────────────────────
-		if not self.ClientLight then
-			print("[Maglite-Debug] Think — creating ProjectedTexture")
-			self.ClientLight = ProjectedTexture()
-			self.ClientLight:SetTexture("effects/flashlight001")
-			self.ClientLight:SetFarZ(1477)
-			self.ClientLight:SetFOV(60)
-			self.ClientLight:SetColor(Color(150, 255, 255, 255))
-			self.ClientLight:SetEnableShadows(true)
-		end
-
-		local pos = EyePos()
-		local ang = EyeAngles()
-
-		self.ClientLight:SetPos(pos)
-		self.ClientLight:SetAngles(ang)
-		self.ClientLight:Update()
-
-		DrawFlashlightSprite(pos + ang:Forward() * 2)
-	end
+	end)
 
 end
