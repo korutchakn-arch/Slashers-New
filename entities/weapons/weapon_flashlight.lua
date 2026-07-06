@@ -146,7 +146,7 @@ if CLIENT then
 					local att = vm:GetAttachment(attID)
 					if att then
 						pos = att.Pos
-						ang = att.Angles
+						ang = att.Ang
 					else
 						pos = EyePos()
 						ang = EyeAngles()

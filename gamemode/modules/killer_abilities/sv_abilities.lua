@@ -210,6 +210,7 @@ local Timer1            = 0
 local lastRequestMyers  = 0
 local myersAbilityActivated = false
 
+
 local function findVictim()
     for _, v in ipairs(GM.ROUND:GetSurvivorsAlive()) do
         if v.ClassID ~= CLASS_SURV_SHY then
@@ -246,9 +247,40 @@ end
 
 function KA_myers_Think()
     local curtime = CurTime()
-    if not GM.ROUND.Active or not IsValid(GM.ROUND.Killer) then
+    local killer = GM.ROUND.Killer
+
+    if not GM.ROUND.Active or not IsValid(killer) then
         myersAbilityActivated = false
         return
+    end
+
+    -- CRITICAL: Do not track movement while the killer is frozen (e.g. during
+    -- character selection or cinematic intro). Reset the timer so the 3-second
+    -- countdown does NOT begin until the round officially starts.
+    if killer:IsFlagSet(FL_FROZEN) then
+        killer.MyersLastMoveTime = curtime
+        return
+    end
+
+    local vel = killer:GetVelocity()
+    local isMoving = vel:LengthSqr() > 0.01
+
+    -- Initialise the movement timer on first tick after unfreeze.
+    if not killer.MyersLastMoveTime then
+        killer.MyersLastMoveTime = curtime
+    end
+
+    if isMoving then
+        -- Any movement immediately breaks invisibility.
+        if killer.MyersIsInvisible then
+            KA_myers_DeactivateInvisibility(killer)
+        end
+        killer.MyersLastMoveTime = curtime
+    else
+        -- Stand still for 3 seconds → activate invisibility.
+        if not killer.MyersIsInvisible and (curtime - killer.MyersLastMoveTime) >= 3 then
+            KA_myers_ActivateInvisibility(killer)
+        end
     end
 
     -- Send victim position every 0.5s
@@ -259,16 +291,16 @@ function KA_myers_Think()
             else
                 net.WriteVector(Vector(42, 42, 42))
             end
-        net.Send(GM.ROUND.Killer)
+        net.Send(killer)
         Timer1 = curtime + 0.5
     end
 
     -- Notify when ability becomes available again
     local cooldown = GM.CONFIG["myers_cooldown"] or 10
-    if math.abs(CurTime() - lastRequestMyers - cooldown) < 0.05 then
+    if math.abs(curtime - lastRequestMyers - cooldown) < 0.05 then
         net.Start("sls_kability_update_myersability")
             net.WriteInt(2, 2)
-        net.Send(GM.ROUND.Killer)
+        net.Send(killer)
     end
 end
 
@@ -291,11 +323,61 @@ end
 function KA_myers_End()
     myersAbilityActivated = false
     lastRequestMyers = 0
+    -- Reset invisibility state on round end
     if IsValid(GM.ROUND.Killer) then
+        local killer = GM.ROUND.Killer
+        killer.MyersIsInvisible = false
+        killer.MyersLastMoveTime = nil
+        killer:DrawShadow(true)
+        killer:SetRenderMode(RENDERMODE_TRANSALPHA)
+        killer:SetColor(Color(255, 255, 255, 255))
         net.Start("sls_kability_update_myersability")
             net.WriteInt(0, 2)
-        net.Send(GM.ROUND.Killer)
+        net.Send(killer)
     end
+end
+
+--[[
+    KA_myers_ActivateInvisibility
+    Applies the translucent light material, suppresses shadow, and plays
+    the power-on sound. The weapon is kept in hand (unlike Proxy) so that
+    Myers can still swing while invisible — movement/attacks still break
+    the state via KA_myers_EntityTakeDamage.
+]]
+function KA_myers_ActivateInvisibility(killer)
+    if not IsValid(killer) then return end
+    if killer.MyersIsInvisible then return end
+
+    killer.MyersIsInvisible = true
+    killer:DrawShadow(false)
+    killer:AddEffects(EF_NOSHADOW)
+    killer:SetRenderMode(RENDERMODE_NONE)
+    killer:EmitSound("slashers/effects/proxy_power_on.wav")
+
+    net.Start("sls_kability_Invisible")
+        net.WriteBool(true)
+    net.Send(killer)
+end
+
+--[[
+    KA_myers_DeactivateInvisibility
+    Restores the normal material, re-enables shadow, and plays the
+    power-off sound.
+]]
+function KA_myers_DeactivateInvisibility(killer)
+    if not IsValid(killer) then return end
+    if not killer.MyersIsInvisible then return end
+
+    killer.MyersIsInvisible = false
+    killer:DrawShadow(true)
+    killer:RemoveEffects(EF_NOSHADOW)
+    killer:SetRenderMode(RENDERMODE_TRANSALPHA)
+    killer:SetColor(Color(255, 255, 255, 255))
+    killer:EmitSound("slashers/effects/proxy_power_off.wav")
+
+    net.Start("sls_kability_Invisible")
+        net.WriteBool(false)
+    net.Send(killer)
 end
 
 -- Register UseAbility for Myers in the registry
@@ -308,6 +390,23 @@ hook.Add("Think",                  "sls_ka_myers_Think",           KA_myers_Thin
 hook.Add("PostPlayerDeath",        "sls_ka_myers_PostPlayerDeath", KA_myers_PostPlayerDeath)
 hook.Add("sls_round_PostStart",    "sls_ka_myers_PostStart",       KA_myers_PostStart)
 hook.Add("sls_round_End",          "sls_ka_myers_End",             KA_myers_End)
+
+--[[
+    KA_myers_EntityTakeDamage
+    Intercepts every damage event where Myers is the attacker and immediately
+    breaks his passive invisibility. This covers weapon swings, blink attacks,
+    and any other damage-dealing action.
+]]
+function KA_myers_EntityTakeDamage(ent, dmginfo)
+    local attacker = dmginfo:GetAttacker()
+    if not IsValid(attacker) then return end
+    if attacker:IsPlayer() and attacker.ChosenCharacter == "myers" then
+        if attacker.MyersIsInvisible then
+            KA_myers_DeactivateInvisibility(attacker)
+        end
+    end
+end
+hook.Add("EntityTakeDamage", "sls_ka_myers_EntityTakeDamage", KA_myers_EntityTakeDamage)
 
 -----------------------------------------------------------
 -- 7. PROXY ABILITY — Invisibility toggle
