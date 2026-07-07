@@ -450,6 +450,12 @@ net.Receive("sls_killer_sync_character", function(len)
 	local charData = GAMEMODE.KillerCharacters[charKey]
 	if not charData then return end
 
+	-- Also sync the character key onto the local player entity so that
+	-- ability guards (e.g. ChosenCharacter ~= "myers") work correctly.
+	-- Without this, LocalPlayer().ChosenCharacter is nil for all clients,
+	-- causing Myers-only net receivers to fire for all Killer characters.
+	LocalPlayer().ChosenCharacter = charKey
+
 	GAMEMODE.MAP.Killer = GAMEMODE.MAP.Killer or {}
 	GAMEMODE.MAP.Killer.Name  = charData.name
 	GAMEMODE.MAP.Killer.Model = charData.model
@@ -459,5 +465,5 @@ net.Receive("sls_killer_sync_character", function(len)
 		GAMEMODE.MAP.Killer.Icon = Material(charData.icon or "icons/icon_ghostface.png")
 	end
 
-	print("[Setup-Pipeline] Synchronized Killer to: " .. charData.name)
+	print("[Setup-Pipeline] Synchronized Killer to: " .. charData.name .. " | LocalPlayer().ChosenCharacter = " .. charKey)
 end)

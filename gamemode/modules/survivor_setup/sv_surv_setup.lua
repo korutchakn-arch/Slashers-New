@@ -145,8 +145,8 @@ StartSurvClassWatchdog = function(ply)
         -- Check whether every survivor is now accounted for.
         -- If so, signal the synchronisation barrier so PostStart can fire.
         local allDone = true
-        if GM.ROUND and GM.ROUND.Survivors then
-            for _, s in ipairs(GM.ROUND.Survivors) do
+        if GAMEMODE.ROUND and GAMEMODE.ROUND.Survivors then
+            for _, s in ipairs(GAMEMODE.ROUND.Survivors) do
                 if IsValid(s) and not s.HasChosenSurvClass then
                     allDone = false
                     break
@@ -155,9 +155,9 @@ StartSurvClassWatchdog = function(ply)
         end
         if allDone then
             hook.Run("sls_surv_ClassSetupComplete")
-            if GM.ROUND then
-                GM.ROUND.SurvivorsReady = true
-                GM.ROUND:CheckSetupComplete()
+            if GAMEMODE.ROUND then
+                GAMEMODE.ROUND.SurvivorsReady = true
+                GAMEMODE.ROUND:CheckSetupComplete()
             end
         end
     end)
@@ -227,8 +227,8 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     -- Check whether every survivor has now chosen. If so, trigger the
     -- synchronisation barrier so PostStart can fire once the killer is ready too.
     local allDone = true
-    if GM.ROUND and GM.ROUND.Survivors then
-        for _, s in ipairs(GM.ROUND.Survivors) do
+    if GAMEMODE.ROUND and GAMEMODE.ROUND.Survivors then
+        for _, s in ipairs(GAMEMODE.ROUND.Survivors) do
             if IsValid(s) and not s.HasChosenSurvClass then
                 allDone = false
                 break
@@ -237,9 +237,9 @@ net.Receive("sls_surv_selectclass", function(len, ply)
     end
     if allDone then
         hook.Run("sls_surv_ClassSetupComplete")
-        if GM.ROUND then
-            GM.ROUND.SurvivorsReady = true
-            GM.ROUND:CheckSetupComplete()
+        if GAMEMODE.ROUND then
+            GAMEMODE.ROUND.SurvivorsReady = true
+            GAMEMODE.ROUND:CheckSetupComplete()
         end
     end
 end)

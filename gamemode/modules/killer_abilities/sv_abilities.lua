@@ -231,6 +231,12 @@ function KA_myers_UseAbility(ply, selfRef)
     end
 
     myersAbilityActivated = true
+    MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → ACTIVE | ply=", ply:Nick(), " | ChosenCharacter=", ply.ChosenCharacter, "\n")
+    -- SERVER-SIDE GUARD: only send Myers ability messages to actual Myers players
+    if ply.ChosenCharacter ~= "myers" then
+        MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_update_myersability → BLOCKED (wrong character: ", tostring(ply.ChosenCharacter), ")\n")
+        return
+    end
     net.Start("sls_kability_update_myersability")
         net.WriteInt(1, 2)
     net.Send(ply)
@@ -239,9 +245,15 @@ function KA_myers_UseAbility(ply, selfRef)
         if not GM.ROUND.Active then return end
         myersAbilityActivated = false
         lastRequestMyers = CurTime()
+        local k = GM.ROUND.Killer
+        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → COOLDOWN | killer=", k and k:Nick() or "nil", " | ChosenCharacter=", k and k.ChosenCharacter or "nil", "\n")
+        if k and k.ChosenCharacter ~= "myers" then
+            MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_update_myersability → BLOCKED (wrong character: ", tostring(k and k.ChosenCharacter or "nil"), ")\n")
+            return
+        end
         net.Start("sls_kability_update_myersability")
             net.WriteInt(0, 2)
-        net.Send(GM.ROUND.Killer)
+        net.Send(k)
     end)
 end
 
@@ -262,6 +274,27 @@ function KA_myers_Think()
         return
     end
 
+    --[[
+        nextBlink value-change detection (tick-rate independent):
+        Each time Myers blinks the server sets "nextBlink" to a new timestamp.
+        A change in this value means the teleport just completed.
+    ]]
+    local currentNextBlink = killer:GetNWFloat("nextBlink", 0)
+    if not killer.MyersLastNextBlink then
+        killer.MyersLastNextBlink = currentNextBlink
+    end
+
+    local blinkJustFinished = false
+    if killer.MyersLastNextBlink ~= currentNextBlink then
+        blinkJustFinished = true
+        killer.MyersLastNextBlink = currentNextBlink
+        if killer.MyersIsInvisible then
+            KA_myers_DeactivateInvisibility(killer, "blink_teleport_finished")
+        end
+        killer.MyersLastMoveTime = curtime
+    end
+
+    -- Velocity tracking — movement always breaks invisibility.
     local vel = killer:GetVelocity()
     local isMoving = vel:LengthSqr() > 0.01
 
@@ -271,13 +304,14 @@ function KA_myers_Think()
     end
 
     if isMoving then
-        -- Any movement immediately breaks invisibility.
+        -- Movement immediately breaks invisibility.
         if killer.MyersIsInvisible then
-            KA_myers_DeactivateInvisibility(killer)
+            KA_myers_DeactivateInvisibility(killer, "player_movement")
         end
         killer.MyersLastMoveTime = curtime
-    else
+    elseif not blinkJustFinished then
         -- Stand still for 3 seconds → activate invisibility.
+        -- Blink-finish was already handled above (blinkJustFinished branch).
         if not killer.MyersIsInvisible and (curtime - killer.MyersLastMoveTime) >= 3 then
             KA_myers_ActivateInvisibility(killer)
         end
@@ -285,22 +319,32 @@ function KA_myers_Think()
 
     -- Send victim position every 0.5s
     if Timer1 < curtime and IsValid(VictimMyers) and VictimMyers.ClassID ~= CLASS_SURV_SHY then
-        net.Start("sls_kability_Wallhack")
-            if myersAbilityActivated then
-                net.WriteVector(VictimMyers:GetPos() + Vector(0, 0, 50))
-            else
-                net.WriteVector(Vector(42, 42, 42))
-            end
-        net.Send(killer)
+        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_Wallhack → ", killer:Nick(), " | ChosenCharacter=", killer.ChosenCharacter, " | activated=", myersAbilityActivated, "\n")
+        if killer.ChosenCharacter ~= "myers" then
+            MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_Wallhack → BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
+        else
+            net.Start("sls_kability_Wallhack")
+                if myersAbilityActivated then
+                    net.WriteVector(VictimMyers:GetPos() + Vector(0, 0, 50))
+                else
+                    net.WriteVector(Vector(42, 42, 42))
+                end
+            net.Send(killer)
+        end
         Timer1 = curtime + 0.5
     end
 
     -- Notify when ability becomes available again
     local cooldown = GM.CONFIG["myers_cooldown"] or 10
     if math.abs(curtime - lastRequestMyers - cooldown) < 0.05 then
-        net.Start("sls_kability_update_myersability")
-            net.WriteInt(2, 2)
-        net.Send(killer)
+        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → READY | killer=", killer:Nick(), " | ChosenCharacter=", killer.ChosenCharacter, "\n")
+        if killer.ChosenCharacter ~= "myers" then
+            MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_update_myersability → READY BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
+        else
+            net.Start("sls_kability_update_myersability")
+                net.WriteInt(2, 2)
+            net.Send(killer)
+        end
     end
 end
 
@@ -308,6 +352,7 @@ function KA_myers_PostPlayerDeath(ply)
     if GM.ROUND.Active and IsValid(GM.ROUND.Killer) and GM.ROUND.Killer:Team() == TEAM_KILLER and ply == VictimMyers then
         VictimMyers = findVictim()
         if not IsValid(VictimMyers) then
+            MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_Wallhack → NIL_VICTIM | killer=", GM.ROUND.Killer:Nick(), " | ChosenCharacter=", GM.ROUND.Killer.ChosenCharacter, "\n")
             net.Start("sls_kability_Wallhack")
                 net.WriteVector(Vector(42, 42, 42))
             net.Send(GM.ROUND.Killer)
@@ -328,9 +373,11 @@ function KA_myers_End()
         local killer = GM.ROUND.Killer
         killer.MyersIsInvisible = false
         killer.MyersLastMoveTime = nil
+        killer.MyersLastNextBlink = nil
         killer:DrawShadow(true)
         killer:SetRenderMode(RENDERMODE_TRANSALPHA)
         killer:SetColor(Color(255, 255, 255, 255))
+        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → ROUND_END_DEACTIVATE | killer=", killer:Nick(), " | ChosenCharacter=", killer.ChosenCharacter, "\n")
         net.Start("sls_kability_update_myersability")
             net.WriteInt(0, 2)
         net.Send(killer)
@@ -344,9 +391,27 @@ end
     Myers can still swing while invisible — movement/attacks still break
     the state via KA_myers_EntityTakeDamage.
 ]]
+
+-- Shared debug convar for Myers invisibility logging
+local MYERS_DEBUG = CreateConVar("slashers_myers_debug", "0", {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE},
+    "Enable debug logging for Myers passive invisibility state transitions.")
+
+local function KA_myers_DebugLog(msg)
+    if MYERS_DEBUG:GetBool() then
+        print("[Myers] " .. msg)
+    end
+end
+
 function KA_myers_ActivateInvisibility(killer)
     if not IsValid(killer) then return end
     if killer.MyersIsInvisible then return end
+
+    -- Guard BEFORE EmitSound — prevents the power-on sound from playing
+    -- for non-Myers killers (serverside, so no network traffic either).
+    if killer.ChosenCharacter ~= "myers" then
+        MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_Invisible → BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
+        return
+    end
 
     killer.MyersIsInvisible = true
     killer:DrawShadow(false)
@@ -357,16 +422,26 @@ function KA_myers_ActivateInvisibility(killer)
     net.Start("sls_kability_Invisible")
         net.WriteBool(true)
     net.Send(killer)
+
+    KA_myers_DebugLog("INVISIBILITY ACTIVATED — " .. killer:Nick() .. " went invisible at " .. math.floor(CurTime()))
 end
 
 --[[
     KA_myers_DeactivateInvisibility
     Restores the normal material, re-enables shadow, and plays the
     power-off sound.
+    Optional second arg `reason` is used for debug logging only.
 ]]
-function KA_myers_DeactivateInvisibility(killer)
+function KA_myers_DeactivateInvisibility(killer, reason)
     if not IsValid(killer) then return end
     if not killer.MyersIsInvisible then return end
+
+    -- Guard BEFORE EmitSound — prevents the power-off sound from playing
+    -- for non-Myers killers (serverside, so no network traffic either).
+    if killer.ChosenCharacter ~= "myers" then
+        MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_Invisible → BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
+        return
+    end
 
     killer.MyersIsInvisible = false
     killer:DrawShadow(true)
@@ -378,6 +453,8 @@ function KA_myers_DeactivateInvisibility(killer)
     net.Start("sls_kability_Invisible")
         net.WriteBool(false)
     net.Send(killer)
+
+    KA_myers_DebugLog("INVISIBILITY DEACTIVATED — " .. killer:Nick() .. " uncloaked at " .. math.floor(CurTime()) .. " | reason: " .. (reason or "unknown"))
 end
 
 -- Register UseAbility for Myers in the registry
@@ -396,17 +473,64 @@ hook.Add("sls_round_End",          "sls_ka_myers_End",             KA_myers_End)
     Intercepts every damage event where Myers is the attacker and immediately
     breaks his passive invisibility. This covers weapon swings, blink attacks,
     and any other damage-dealing action.
+
+    Additionally, on the FIRST tick where the attacker is invisible AND their
+    active weapon is NOT the sls_blink SWEP, we force an immediate uncloak.
+    This closes the gap when a melee swing deals no damage (ghosted survivor,
+    noclip, etc.) but the attack animation still played and the killer remained
+    visible on the victim's screen.
 ]]
 function KA_myers_EntityTakeDamage(ent, dmginfo)
     local attacker = dmginfo:GetAttacker()
     if not IsValid(attacker) then return end
     if attacker:IsPlayer() and attacker.ChosenCharacter == "myers" then
         if attacker.MyersIsInvisible then
-            KA_myers_DeactivateInvisibility(attacker)
+            KA_myers_DeactivateInvisibility(attacker, "entity_take_damage")
+        end
+
+        --[[
+            Secondary check: if Myers is invisible but is NOT holding sls_blink,
+            it means he is attacking with his primary melee weapon. Force uncloak
+            immediately regardless of whether damage was actually dealt this tick.
+            This prevents the edge-case where a swing is entirely blocked but
+            Myers stays invisible because EntityTakeDamage never fires.
+        ]]
+        local wep = attacker:GetActiveWeapon()
+        if IsValid(wep) and wep:GetClass() ~= "sls_blink" then
+            if attacker.MyersIsInvisible then
+                KA_myers_DeactivateInvisibility(attacker, "non_blink_weapon_attack")
+            end
         end
     end
 end
 hook.Add("EntityTakeDamage", "sls_ka_myers_EntityTakeDamage", KA_myers_EntityTakeDamage)
+
+--[[
+    KA_myers_PlayerButtonDown
+    Defense-in-depth: catches any IN_ATTACK press while Myers is invisible,
+    regardless of what weapon is active or whether any damage event fired.
+    This is the authoritative global uncloak trigger — no SWEP logic required.
+]]
+local function KA_myers_PlayerButtonDown(ply, button)
+    if not IsValid(ply) then return end
+    if not ply:IsPlayer() then return end
+    if ply.ChosenCharacter ~= "myers" then return end
+    if not GM or not GM.ROUND or not GM.ROUND.Active then return end
+
+    -- MOUSE_LEFT (0) and MOUSE_RIGHT (107) are the only relevant attack keys
+    if button ~= MOUSE_LEFT and button ~= MOUSE_RIGHT then return end
+
+    if ply.MyersIsInvisible then
+        KA_myers_DeactivateInvisibility(ply, "attack_button")
+    end
+
+    -- Reset the 3-second standing-still timer on every attack so Myers gets
+    -- a full window before re-cloaking. Without this, MyersLastMoveTime stays
+    -- stale and the next Think tick immediately triggers re-cloak
+    -- (curtime - old_timestamp >= 3).
+    ply.MyersLastMoveTime = CurTime()
+end
+hook.Add("PlayerButtonDown", "sls_ka_myers_PlayerButtonDown", KA_myers_PlayerButtonDown)
 
 -----------------------------------------------------------
 -- 7. PROXY ABILITY — Invisibility toggle

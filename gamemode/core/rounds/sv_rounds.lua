@@ -30,7 +30,7 @@ function GM.ROUND:ViewInitCam(enable)
 	if enable then
 		for _, v in ipairs(player.GetAll()) do
 			if IsValid(v) then
-				v:SetPos(GM.ROUND.CameraPos)
+				v:SetPos(GM.ROUND.CameraPos or Vector(0, 0, 0))
 			end
 		end
 	end
@@ -344,6 +344,10 @@ end
 
 local function PlayerDK(ply)
 	if !GM.ROUND.Active then return end
+	-- Guard: do not process survivor deaths while the setup pipeline is still
+	-- running. Bots killed during setup would otherwise trigger a 0-survivor
+	-- End() and soft-lock the round before the cinematic even starts.
+	if not (GM.ROUND.KillerReady and GM.ROUND.SurvivorsReady) then return end
 	if #GM.ROUND:GetSurvivorsAlive() == 0 then
 		GM.ROUND:End()
 	end
