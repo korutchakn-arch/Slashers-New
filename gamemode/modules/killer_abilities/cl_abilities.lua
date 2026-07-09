@@ -130,15 +130,9 @@ hook.Add("sls_round_End", "sls_ka_jason_End", KA_jason_End)
 
 local myers_victimPos = nil
 
--- DEBUG: trace why non-Myers characters receive Myers effects
 net.Receive("sls_kability_update_myersability", function(len)
     local char   = LocalPlayer().ChosenCharacter
-    local team   = LocalPlayer():Team()
-    local frame  = FrameNumber()
-    local status = net.ReadInt(2)  -- read ONCE; reuse for both debug and logic
-    MsgC(Color(255, 100, 100), "[DEBUG] sls_kability_update_myersability | ",
-          "ChosenCharacter=", tostring(char), " | Team=", team, " | frame=", frame,
-          " | status=", status, "\n")
+    local status = net.ReadInt(2)
     if char ~= "myers" then return end
     if status == 2 then
         -- Ability available
@@ -149,15 +143,9 @@ net.Receive("sls_kability_update_myersability", function(len)
     end
 end)
 
--- DEBUG: trace Wallhack messages for cross-character contamination
 net.Receive("sls_kability_Wallhack", function(len)
     local char  = LocalPlayer().ChosenCharacter
-    local team  = LocalPlayer():Team()
-    local frame = FrameNumber()
     local rawPos = net.ReadVector()
-    MsgC(Color(255, 100, 100), "[DEBUG] sls_kability_Wallhack | ",
-          "ChosenCharacter=", tostring(char), " | Team=", team, " | frame=", frame,
-          " | pos=", rawPos.x..","..rawPos.y..","..rawPos.z, "\n")
     if char ~= "myers" then return end
     local tempPos = rawPos
     if tempPos == Vector(42, 42, 42) then
@@ -183,13 +171,11 @@ end
 hook.Add("HUDPaintBackground", "sls_ka_myers_HUDPaintBackground", KA_myers_HUDPaintBackground)
 
 local function KA_myers_PreStart()
-    MsgC(Color(100, 255, 100), "[DEBUG] KA_myers_PreStart — resetting myers_victimPos\n")
     myers_victimPos = nil
 end
 hook.Add("sls_round_PreStart", "sls_ka_myers_PreStart", KA_myers_PreStart)
 
 local function KA_myers_End()
-    MsgC(Color(255, 200, 50), "[DEBUG] KA_myers_End — resetting myers_victimPos\n")
     myers_victimPos = nil
 end
 hook.Add("sls_round_End", "sls_ka_myers_End", KA_myers_End)

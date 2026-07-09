@@ -231,10 +231,8 @@ function KA_myers_UseAbility(ply, selfRef)
     end
 
     myersAbilityActivated = true
-    MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → ACTIVE | ply=", ply:Nick(), " | ChosenCharacter=", ply.ChosenCharacter, "\n")
     -- SERVER-SIDE GUARD: only send Myers ability messages to actual Myers players
     if ply.ChosenCharacter ~= "myers" then
-        MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_update_myersability → BLOCKED (wrong character: ", tostring(ply.ChosenCharacter), ")\n")
         return
     end
     net.Start("sls_kability_update_myersability")
@@ -246,9 +244,7 @@ function KA_myers_UseAbility(ply, selfRef)
         myersAbilityActivated = false
         lastRequestMyers = CurTime()
         local k = GM.ROUND.Killer
-        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → COOLDOWN | killer=", k and k:Nick() or "nil", " | ChosenCharacter=", k and k.ChosenCharacter or "nil", "\n")
         if k and k.ChosenCharacter ~= "myers" then
-            MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_update_myersability → BLOCKED (wrong character: ", tostring(k and k.ChosenCharacter or "nil"), ")\n")
             return
         end
         net.Start("sls_kability_update_myersability")
@@ -319,32 +315,26 @@ function KA_myers_Think()
 
     -- Send victim position every 0.5s
     if Timer1 < curtime and IsValid(VictimMyers) and VictimMyers.ClassID ~= CLASS_SURV_SHY then
-        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_Wallhack → ", killer:Nick(), " | ChosenCharacter=", killer.ChosenCharacter, " | activated=", myersAbilityActivated, "\n")
-        if killer.ChosenCharacter ~= "myers" then
-            MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_Wallhack → BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
-        else
-            net.Start("sls_kability_Wallhack")
-                if myersAbilityActivated then
-                    net.WriteVector(VictimMyers:GetPos() + Vector(0, 0, 50))
-                else
-                    net.WriteVector(Vector(42, 42, 42))
-                end
-            net.Send(killer)
-        end
+        if killer.ChosenCharacter ~= "myers" then return end
+
+        net.Start("sls_kability_Wallhack")
+            if myersAbilityActivated then
+                net.WriteVector(VictimMyers:GetPos() + Vector(0, 0, 50))
+            else
+                net.WriteVector(Vector(42, 42, 42))
+            end
+        net.Send(killer)
         Timer1 = curtime + 0.5
     end
 
     -- Notify when ability becomes available again
     local cooldown = GM.CONFIG["myers_cooldown"] or 10
     if math.abs(curtime - lastRequestMyers - cooldown) < 0.05 then
-        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → READY | killer=", killer:Nick(), " | ChosenCharacter=", killer.ChosenCharacter, "\n")
-        if killer.ChosenCharacter ~= "myers" then
-            MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_update_myersability → READY BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
-        else
-            net.Start("sls_kability_update_myersability")
-                net.WriteInt(2, 2)
-            net.Send(killer)
-        end
+        if killer.ChosenCharacter ~= "myers" then return end
+
+        net.Start("sls_kability_update_myersability")
+            net.WriteInt(2, 2)
+        net.Send(killer)
     end
 end
 
@@ -352,7 +342,6 @@ function KA_myers_PostPlayerDeath(ply)
     if GM.ROUND.Active and IsValid(GM.ROUND.Killer) and GM.ROUND.Killer:Team() == TEAM_KILLER and ply == VictimMyers then
         VictimMyers = findVictim()
         if not IsValid(VictimMyers) then
-            MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_Wallhack → NIL_VICTIM | killer=", GM.ROUND.Killer:Nick(), " | ChosenCharacter=", GM.ROUND.Killer.ChosenCharacter, "\n")
             net.Start("sls_kability_Wallhack")
                 net.WriteVector(Vector(42, 42, 42))
             net.Send(GM.ROUND.Killer)
@@ -377,7 +366,6 @@ function KA_myers_End()
         killer:DrawShadow(true)
         killer:SetRenderMode(RENDERMODE_TRANSALPHA)
         killer:SetColor(Color(255, 255, 255, 255))
-        MsgC(Color(255, 200, 0), "[DEBUG-SV] sls_kability_update_myersability → ROUND_END_DEACTIVATE | killer=", killer:Nick(), " | ChosenCharacter=", killer.ChosenCharacter, "\n")
         net.Start("sls_kability_update_myersability")
             net.WriteInt(0, 2)
         net.Send(killer)
@@ -409,7 +397,6 @@ function KA_myers_ActivateInvisibility(killer)
     -- Guard BEFORE EmitSound — prevents the power-on sound from playing
     -- for non-Myers killers (serverside, so no network traffic either).
     if killer.ChosenCharacter ~= "myers" then
-        MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_Invisible → BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
         return
     end
 
@@ -439,7 +426,6 @@ function KA_myers_DeactivateInvisibility(killer, reason)
     -- Guard BEFORE EmitSound — prevents the power-off sound from playing
     -- for non-Myers killers (serverside, so no network traffic either).
     if killer.ChosenCharacter ~= "myers" then
-        MsgC(Color(255, 100, 0), "[DEBUG-SV] sls_kability_Invisible → BLOCKED (wrong character: ", tostring(killer.ChosenCharacter), ")\n")
         return
     end
 
