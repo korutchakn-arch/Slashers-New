@@ -199,9 +199,9 @@ SWEP.WElements = {
 -- Phone Ability Constants
 -- ─────────────────────────────────────────────────────────────────────────────
 local PHONE_ABILITY_COOLDOWN    = 20   -- seconds between uses
-local PHONE_WEAPON_DURATION     = 10   -- seconds the survivor holds the phone
+local PHONE_WEAPON_DURATION     = 7    -- seconds the survivor holds the phone (6 s sound + 1 s margin)
 local PHONE_ABILITY_SOUND       = "buttons/button14.wav"  -- played to Ghostface on success
-local PHONE_RINGING_SOUND       = "ambient/alarms/alarm1.wav" -- played to the called survivor
+local PHONE_RINGING_SOUND       = "ghostface_player_sound/ScaryMovie project.wav" -- played to the called survivor
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- PrimaryAttack — Ghostface Phone Ability
